@@ -3,3 +3,4 @@ ollama
 requests
 openai
 google-generativeai
+Pillow

@@ -105,7 +105,8 @@ class MainApp:
         config = load_config()
         self.workspace_path = config.get("last_workspace", None)
         if self.workspace_path and os.path.exists(self.workspace_path):
-            self.ui.btn_select_folder.configure(text=f"📁  {os.path.basename(self.workspace_path)}")
+            self.ui.workspace_path_text = os.path.basename(self.workspace_path)
+            self.ui.btn_select_folder.configure(text=f"📁 {self.ui.workspace_path_text}")
             self._populate_tree(self.workspace_path)
             self._populate_chats()
             self.refresh_diff()
@@ -327,7 +328,8 @@ class MainApp:
         config["last_workspace"] = path
         save_config(config)
         
-        self.ui.btn_select_folder.configure(text=f"📁  {os.path.basename(path)}")
+        self.ui.workspace_path_text = os.path.basename(path)
+        self.ui.btn_select_folder.configure(text=f"📁 {self.ui.workspace_path_text}")
         self._populate_tree(path)
         self._populate_chats()
         self.refresh_diff()

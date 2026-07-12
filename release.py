@@ -20,7 +20,15 @@ def update_version_in_updater(new_version):
 
 def run_build():
     print("[+] PyInstaller çalıştırılıyor...")
-    subprocess.run(["python", "-m", "PyInstaller", "--onedir", "--noconsole", "-y", "--name", "lesh-agent", "main.py"], check=True)
+    subprocess.run([
+        "pyinstaller",
+        "--noconfirm",
+        "--onedir",
+        "--windowed",
+        "--name", "lesh-agent",
+        "--icon", "assets/logo.ico",
+        "main.py"
+    ], check=True)
     print("[+] Build tamamlandı.")
 
 def create_zip():
