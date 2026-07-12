@@ -81,6 +81,12 @@ def check_for_updates(status_callback=None, complete_callback=None):
             if status_callback:
                 status_callback("Ayıklama tamamlandı. Güncelleme hazırlanıyor...")
 
+            # Eğer zip dosyasının içinde bir klasör daha varsa (örn: yerel-agent/yerel-agent.exe), kopyalama yolunu ona göre ayarla
+            extracted_items = os.listdir(temp_dir)
+            source_dir = temp_dir
+            if len(extracted_items) == 1 and os.path.isdir(os.path.join(temp_dir, extracted_items[0])):
+                source_dir = os.path.join(temp_dir, extracted_items[0])
+
             # update.bat oluştur
             bat_path = "update.bat"
             bat_content = f"""@echo off
@@ -88,14 +94,14 @@ echo Guncelleme uygulaniyor, lutfen bekleyin...
 timeout /t 2 /nobreak >nul
 
 :: Yeni dosyalari ana dizine kopyala
-xcopy /s /e /y /q "{temp_dir}\\*" "."
+xcopy /s /e /y /q "{source_dir}\\*" "."
 
 :: Gecici klasoru ve zip dosyasini sil
 rmdir /s /q "{temp_dir}"
 del /q "{zip_path}"
 
 :: Uygulamayi yeniden baslat
-start main.exe
+start yerel-agent.exe
 
 :: Bat dosyasinin kendini silmesi
 (goto) 2>nul & del "%~f0"
