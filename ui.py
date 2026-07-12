@@ -1,6 +1,10 @@
 import customtkinter as ctk
 import tkinter as tk
 from tkinter import ttk
+import sys
+import subprocess
+
+from i18n import t, set_lang, CURRENT_LANG
 
 # ==========================================
 # GOOGLE MATERIAL DESIGN 3 - DARK THEME
@@ -25,12 +29,12 @@ class AppUI(ctk.CTk):
     def __init__(self):
         super().__init__()
 
-        self.title("Yerel Ajan — Autonomous Coding Agent")
+        self.title(t("title"))
         self.geometry("1440x900")
         self.configure(fg_color=BG_COLOR)
 
         # Layout: Sidebar(280) | Chat(flex) | Inspector(400)
-        self.grid_columnconfigure(0, weight=0, minsize=280)
+        self.grid_columnconfigure(0, weight=0, minsize=300)
         self.grid_columnconfigure(1, weight=1)
         self.grid_columnconfigure(2, weight=0, minsize=420)
         self.grid_rowconfigure(0, weight=1)
@@ -39,6 +43,15 @@ class AppUI(ctk.CTk):
         self._build_chat()
         self._build_inspector()
         self._apply_tree_style()
+
+    def toggle_lang(self):
+        new_lang = "tr" if CURRENT_LANG == "en" else "en"
+        set_lang(new_lang)
+        try:
+            subprocess.Popen([sys.executable] + sys.argv)
+            os._exit(0)
+        except:
+            pass
 
     # ─────────────────────────────────────────────
     # LEFT SIDEBAR
@@ -53,20 +66,32 @@ class AppUI(ctk.CTk):
         self.sidebar.grid_columnconfigure(0, weight=1)
 
         # Header
+        header_frame = ctk.CTkFrame(self.sidebar, fg_color="transparent")
+        header_frame.grid(row=0, column=0, sticky="ew", padx=20, pady=(28, 16))
+        header_frame.grid_columnconfigure(0, weight=1)
+
         ctk.CTkLabel(
-            self.sidebar, text="✦ Yerel Ajan",
+            header_frame, text=t("header"),
             font=(FONT_FAMILY, 20, "bold"), text_color=PRIMARY_COLOR
-        ).grid(row=0, column=0, sticky="w", padx=20, pady=(28, 16))
+        ).grid(row=0, column=0, sticky="w")
+        
+        self.btn_lang = ctk.CTkButton(
+            header_frame, text="TR" if CURRENT_LANG == "en" else "EN",
+            width=36, height=24, fg_color=BG_COLOR, text_color=TEXT_PRIMARY,
+            border_width=1, border_color=BORDER_COLOR,
+            command=self.toggle_lang
+        )
+        self.btn_lang.grid(row=0, column=1, sticky="e")
         
         # PAT/API Key Input
         self.lbl_token = ctk.CTkLabel(
-            self.sidebar, text="API Key / Token",
+            self.sidebar, text=t("api_key"),
             font=(FONT_FAMILY, 12, "bold"), text_color=TEXT_SECONDARY
         )
         self.lbl_token.grid(row=1, column=0, sticky="w", padx=20, pady=(0, 4))
         
         self.entry_pat = ctk.CTkEntry(
-            self.sidebar, placeholder_text="Token girin...", show="*",
+            self.sidebar, placeholder_text=t("api_key_placeholder"), show="*",
             fg_color=BG_COLOR, border_color=BORDER_COLOR, height=36,
             font=(FONT_FAMILY, 12)
         )
@@ -74,7 +99,7 @@ class AppUI(ctk.CTk):
 
         # Workspace button
         self.btn_select_folder = ctk.CTkButton(
-            self.sidebar, text="✚  Çalışma Alanı Seç",
+            self.sidebar, text=t("select_workspace"),
             fg_color=BG_COLOR, hover_color=SURFACE_HOVER,
             border_width=1, border_color=BORDER_COLOR,
             text_color=TEXT_PRIMARY, font=(FONT_FAMILY, 13, "bold"),
@@ -82,31 +107,32 @@ class AppUI(ctk.CTk):
         )
         self.btn_select_folder.grid(row=3, column=0, padx=16, pady=(0, 16), sticky="ew")
 
-        # File tree
-        tree_frame = ctk.CTkFrame(self.sidebar, fg_color="transparent")
-        tree_frame.grid(row=4, column=0, padx=16, pady=0, sticky="nsew")
-        tree_frame.grid_rowconfigure(1, weight=1)
-        tree_frame.grid_columnconfigure(0, weight=1)
-
-        ctk.CTkLabel(
-            tree_frame, text="DOSYALAR (Tıklayarak Bağlama Ekle)",
-            font=(FONT_FAMILY, 10, "bold"), text_color=TEXT_SECONDARY
-        ).grid(row=0, column=0, sticky="w", pady=(0, 6))
-
-        self.tree = ttk.Treeview(tree_frame, show="tree", selectmode="browse")
-        self.tree.grid(row=1, column=0, sticky="nsew")
+        # File tree & Chats (Tabs)
+        self.tabs = ctk.CTkTabview(self.sidebar, fg_color="transparent")
+        self.tabs.grid(row=4, column=0, padx=16, pady=0, sticky="nsew")
+        
+        self.tabs.add(t("files_tab"))
+        self.tabs.add(t("chats_tab"))
+        
+        # Files Tree
+        self.tree = ttk.Treeview(self.tabs.tab(t("files_tab")), show="tree", selectmode="browse")
+        self.tree.pack(expand=True, fill="both")
+        
+        # Chats List
+        self.chat_list = ttk.Treeview(self.tabs.tab(t("chats_tab")), show="tree", selectmode="browse")
+        self.chat_list.pack(expand=True, fill="both")
 
         # Model card — double selector (Provider -> Model)
         model_card = ctk.CTkFrame(self.sidebar, fg_color=BG_COLOR, corner_radius=14)
         model_card.grid(row=5, column=0, padx=16, pady=16, sticky="ew")
 
         ctk.CTkLabel(
-            model_card, text="Sağlayıcı (Provider)",
+            model_card, text=t("provider"),
             font=(FONT_FAMILY, 12), text_color=TEXT_SECONDARY
         ).pack(anchor="w", padx=14, pady=(14, 4))
 
         self.combo_provider = ctk.CTkComboBox(
-            model_card, values=["Yerel (Ollama)", "GitHub Models (Bulut)", "Google AI Studio (Gemini)", "Groq Cloud"],
+            model_card, values=["Yerel (Ollama)", "GitHub Models", "Google AI Studio", "Groq Cloud"],
             fg_color=SURFACE_COLOR, border_color=BORDER_COLOR,
             button_color=SURFACE_COLOR, text_color=TEXT_PRIMARY,
             font=(FONT_FAMILY, 13)
@@ -114,7 +140,7 @@ class AppUI(ctk.CTk):
         self.combo_provider.pack(fill="x", padx=14, pady=(0, 10))
 
         ctk.CTkLabel(
-            model_card, text="Model",
+            model_card, text=t("model"),
             font=(FONT_FAMILY, 12), text_color=TEXT_SECONDARY
         ).pack(anchor="w", padx=14, pady=(4, 4))
 
@@ -128,14 +154,14 @@ class AppUI(ctk.CTk):
 
         # Status
         self.lbl_status = ctk.CTkLabel(
-            self.sidebar, text="● Hazır",
+            self.sidebar, text=t("status_ready"),
             text_color=WARN_COLOR, font=(FONT_FAMILY, 12)
         )
         self.lbl_status.grid(row=6, column=0, padx=20, pady=(0, 10), sticky="w")
         
         # Update Button
         self.btn_update = ctk.CTkButton(
-            self.sidebar, text="🔄 Güncellemeleri Kontrol Et",
+            self.sidebar, text=t("btn_update"),
             fg_color="transparent", hover_color=SURFACE_HOVER,
             border_width=1, border_color=BORDER_COLOR,
             text_color=TEXT_PRIMARY, font=(FONT_FAMILY, 12)
@@ -162,7 +188,7 @@ class AppUI(ctk.CTk):
         self.chat_display.tag_config("system", foreground=TEXT_SECONDARY)
         self.chat_display.tag_config("user", foreground=PRIMARY_COLOR)
         self.chat_display.tag_config("tool_ok", foreground=SUCCESS_COLOR)
-        self.chat_display.tag_config("think", foreground=THINK_COLOR)  # Görsel olarak ayrışan gri ton
+        self.chat_display.tag_config("think", foreground=THINK_COLOR)
 
         # Input bar
         bar = ctk.CTkFrame(self.chat_panel, fg_color=SURFACE_COLOR, corner_radius=22)
@@ -177,7 +203,7 @@ class AppUI(ctk.CTk):
         self.chat_input.grid(row=0, column=0, sticky="ew", padx=18, pady=10)
 
         self.btn_send = ctk.CTkButton(
-            bar, text="Gönder", width=90, height=44,
+            bar, text=t("chat_send"), width=90, height=44,
             fg_color=PRIMARY_COLOR, hover_color=PRIMARY_HOVER,
             text_color=BG_COLOR, font=(FONT_FAMILY, 14, "bold"),
             corner_radius=18
@@ -193,7 +219,7 @@ class AppUI(ctk.CTk):
             border_width=1, border_color=BORDER_COLOR
         )
         self.inspector.grid(row=0, column=2, sticky="nsew")
-        self.inspector.grid_rowconfigure(1, weight=2)  # terminal log bigger
+        self.inspector.grid_rowconfigure(1, weight=2)
         self.inspector.grid_rowconfigure(0, weight=1)
         self.inspector.grid_columnconfigure(0, weight=1)
 
@@ -203,7 +229,7 @@ class AppUI(ctk.CTk):
         diff_header.grid_columnconfigure(0, weight=1)
 
         ctk.CTkLabel(
-            diff_header, text="GİT DEĞİŞİKLİKLERİ",
+            diff_header, text=t("git_diff"),
             font=(FONT_FAMILY, 11, "bold"), text_color=TEXT_SECONDARY
         ).grid(row=0, column=0, sticky="w")
 
@@ -223,7 +249,7 @@ class AppUI(ctk.CTk):
 
         # ── Terminal / Agent Log ──
         ctk.CTkLabel(
-            self.inspector, text="AJAN TERMİNAL LOGU",
+            self.inspector, text=t("agent_log"),
             font=(FONT_FAMILY, 11, "bold"), text_color=TEXT_SECONDARY
         ).grid(row=1, column=0, sticky="nw", padx=20, pady=(8, 0))
 
@@ -240,7 +266,7 @@ class AppUI(ctk.CTk):
         push_bar.grid_columnconfigure(0, weight=1)
 
         self.commit_msg_input = ctk.CTkEntry(
-            push_bar, placeholder_text="Commit mesajı...",
+            push_bar, placeholder_text=t("commit_placeholder"),
             fg_color=BG_COLOR, border_color=BORDER_COLOR,
             height=42, corner_radius=10, font=(FONT_FAMILY, 13),
             text_color=TEXT_PRIMARY
@@ -248,7 +274,7 @@ class AppUI(ctk.CTk):
         self.commit_msg_input.grid(row=0, column=0, sticky="ew", pady=(0, 10))
 
         self.btn_git_push = ctk.CTkButton(
-            push_bar, text="✅  Commit & Push",
+            push_bar, text=t("btn_push"),
             fg_color=SUCCESS_COLOR, hover_color="#5CB87A",
             text_color="#000000", font=(FONT_FAMILY, 14, "bold"),
             height=46, corner_radius=10
@@ -276,6 +302,11 @@ class AppUI(ctk.CTk):
         else:
             self.chat_display.insert("end", text)
         self.chat_display.see("end")
+        self.chat_display.configure(state="disabled")
+        
+    def clear_chat(self):
+        self.chat_display.configure(state="normal")
+        self.chat_display.delete("1.0", "end")
         self.chat_display.configure(state="disabled")
 
     def append_log(self, text):
