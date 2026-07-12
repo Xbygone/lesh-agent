@@ -5,7 +5,7 @@ import zipfile
 import requests
 import threading
 
-CURRENT_VERSION = "1.0.0"
+CURRENT_VERSION = "1.0.3"
 REPO_OWNER = "Xbygone"
 REPO_NAME = "yerel-agent"
 GITHUB_API_URL = f"https://api.github.com/repos/{REPO_OWNER}/{REPO_NAME}/releases/latest"
