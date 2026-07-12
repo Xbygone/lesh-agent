@@ -75,7 +75,7 @@ class AppUI(ctk.CTk):
         
         # Tag konfigürasyonu ile renkli metin desteği (CTKTextbox underlying tkinter Text widget destekler)
         self.chat_display.tag_config("system", foreground="#8B8B8B")
-        self.chat_display.tag_config("think", foreground="#4A90E2", font=("Consolas", 12, "italic"))
+        self.chat_display.tag_config("think", foreground="#4A90E2")
         self.chat_display.tag_config("tool", foreground="#F5A623")
         
         # Girdi Alanı
