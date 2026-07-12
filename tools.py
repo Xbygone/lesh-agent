@@ -92,3 +92,25 @@ def list_directory(filepath, workspace_path):
         return json.dumps({"error": "Klasör değil."})
     except Exception as e:
         return json.dumps({"error": str(e)})
+
+import subprocess
+
+def run_terminal_command(command, workspace_path):
+    """
+    Terminal komutu çalıştırır (Örn: pip install, git komutları).
+    """
+    try:
+        result = subprocess.run(
+            command, 
+            cwd=workspace_path, 
+            shell=True, 
+            capture_output=True, 
+            text=True
+        )
+        return json.dumps({
+            "success": result.returncode == 0,
+            "stdout": result.stdout,
+            "stderr": result.stderr
+        })
+    except Exception as e:
+        return json.dumps({"error": str(e)})

@@ -1,7 +1,7 @@
 import json
 import re
 from ollama_client import chat_stream, chat_sync
-from tools import read_file, write_file, search_web, list_directory, fetch_url
+from tools import read_file, write_file, search_web, list_directory, fetch_url, run_terminal_command
 
 ROUTER_PROMPT = """Sen akıllı bir yönlendiricisin (Router). 
 Görevin, kullanıcının talebini değerlendirmektir. 
@@ -20,13 +20,14 @@ Kullanılabilir Araçlar (JSON formatları):
 2. Dosya Yazma: <tool>{"action": "write_file", "filepath": "main.py", "content": "import os\n..."}</tool>
 3. Klasör Listeleme: <tool>{"action": "list_directory", "filepath": "."}</tool>
 4. Web Araması: <tool>{"action": "search_web", "query": "python fastapi error"}</tool>
+5. Terminal Komutu Çalıştırma: <tool>{"action": "run_terminal_command", "command": "pip install requests"}</tool>
 
-KURALLAR:
-1. Planlama yaparken veya düşünürken mutlaka <think> ... düşünceler ... </think> etiketlerini kullan. Bu kullanıcıya senin zihnini gösterir.
+ÖNEMLİ KURALLAR:
+1. Planlama yaparken veya düşünürken mutlaka <think> ... düşünceler ... </think> etiketlerini kullan.
 2. Bir araca ihtiyacın varsa, sadece tek bir <tool> JSON objesi bas ve cümleni/cevabını bitir. (Araç sonucu sana sistem tarafından gönderilecek).
-3. Bir dosyayı değiştirmeden önce okuyup içeriğinden emin olman iyi bir pratiktir.
-4. Dosyayı yazarken tüm içeriği (tam kodu) gönder, eksik kod gönderme.
-5. Görevi tamamladığında kullanıcıya kısaca ne yaptığını açıkla ve döngüyü bitirmek için <tool> kullanma.
+3. Dosyayı yazarken tüm içeriği (tam kodu) gönder, eksik kod gönderme.
+4. GÖREV BİTTİĞİNDE OTOMATİK PUSH: Eğer projede bir değişiklik yaptıysan (write_file), döngüyü bitirmeden hemen önce `run_terminal_command` aracı ile sırasıyla `git add .`, `git commit -m "..."`, ve `git push` komutlarını ÇALIŞTIR! (Örn: `git add . && git commit -m "Fix" && git push`).
+5. YENİ KÜTÜPHANE: Eğer yazdığın kod yeni bir kütüphane gerektiriyorsa kodu yazdıktan sonra `run_terminal_command` ile (Örn: `pip install x`) kurulumunu kendin yap ve `requirements.txt`'ye de eklemeyi unutma.
 """
 
 def extract_tool_call(text):
@@ -100,6 +101,9 @@ class AgentState:
                         result = list_directory(tool_call.get("filepath", ""), self.workspace_path)
                     elif action == "search_web":
                         result = search_web(tool_call.get("query", ""))
+                    elif action == "run_terminal_command":
+                        result = run_terminal_command(tool_call.get("command", ""), self.workspace_path)
+                        self.ui_callback(f"🖥️ [Terminal Çalıştı: {tool_call.get('command')}]\n", is_system=True)
                     else:
                         result = json.dumps({"error": f"Bilinmeyen araç: {action}"})
                 except Exception as e:
