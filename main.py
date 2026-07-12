@@ -84,6 +84,9 @@ class MainApp:
         
         # Load config
         self._load_initial_config()
+        
+        # Otomatik güncelleme kontrolü
+        self.run_updater()
 
     def run_updater(self):
         self.ui.btn_update.configure(state="disabled", text="Kontrol ediliyor...")
