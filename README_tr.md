@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="assets/logo.jpg" width="250" alt="Lesh Logo">
+</p>
+
 # Lesh - Local Agent Coder
 
 Lesh, veri gizliliğini ve kontrolünü tamamen sana bırakarak temel olarak yerel donanımda çalışacak şekilde tasarlanmış gelişmiş ve otonom bir yapay zeka kodlama asistanıdır. Güçlü otomatik güncelleme mekanizması ve zarif Material Design 3 arayüzü ile Lesh, kodlama iş akışını hızlandırır ve sana özel yapay zeka destekli bir çalışma arkadaşı gibi davranır.
@@ -15,9 +19,9 @@ Lesh, veri gizliliğini ve kontrolünü tamamen sana bırakarak temel olarak yer
 
 ## Hızlı Başlangıç
 
-1. En son `yerel-agent.zip` (Lesh Agent) sürümünü [Releases](../../releases) sekmesinden indirin.
+1. En son `lesh-agent.zip` (Lesh Agent) sürümünü [Releases](../../releases) sekmesinden indirin.
 2. Klasörü bilgisayarınızda istediğiniz bir yere çıkarın.
-3. `yerel-agent.exe`'yi çalıştırın.
+3. `lesh-agent.exe`'yi çalıştırın.
 4. Bir proje dizini bağlamak için **Çalışma Alanı Seç** düğmesine tıklayın.
 5. (Opsiyonel) Bulut modelleri için API tokenlarınızı girin veya tamamen yerelde kalmak için `Yerel (Ollama)`'yı seçin.
 6. Kodlamaya başlayın!

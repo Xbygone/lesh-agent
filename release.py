@@ -20,13 +20,13 @@ def update_version_in_updater(new_version):
 
 def run_build():
     print("[+] PyInstaller çalıştırılıyor...")
-    subprocess.run(["python", "-m", "PyInstaller", "--onedir", "--noconsole", "-y", "--name", "yerel-agent", "main.py"], check=True)
+    subprocess.run(["python", "-m", "PyInstaller", "--onedir", "--noconsole", "-y", "--name", "lesh-agent", "main.py"], check=True)
     print("[+] Build tamamlandı.")
 
 def create_zip():
-    print("[+] dist/yerel-agent klasörü zipleniyor...")
-    dist_dir = os.path.join("dist", "yerel-agent")
-    zip_path = "yerel-agent.zip"
+    print("[+] dist/lesh-agent klasörü zipleniyor...")
+    dist_dir = os.path.join("dist", "lesh-agent")
+    zip_path = "lesh-agent.zip"
     
     if os.path.exists(zip_path):
         os.remove(zip_path)
@@ -35,7 +35,7 @@ def create_zip():
         for root, dirs, files in os.walk(dist_dir):
             for file in files:
                 file_path = os.path.join(root, file)
-                # Sadece 'yerel-agent/...' olacak şekilde arşiv ismini ayarla
+                # Sadece 'lesh-agent/...' olacak şekilde arşiv ismini ayarla
                 arcname = os.path.relpath(file_path, "dist")
                 zipf.write(file_path, arcname)
     print(f"[+] {zip_path} başarıyla oluşturuldu.")
@@ -43,7 +43,7 @@ def create_zip():
 
 def create_github_release(token, version, zip_path):
     print(f"[+] GitHub'da v{version} sürümü oluşturuluyor...")
-    repo = "Xbygone/yerel-agent"
+    repo = "Xbygone/lesh-agent"
     headers = {
         "Authorization": f"token {token}",
         "Accept": "application/vnd.github.v3+json"
@@ -71,7 +71,7 @@ def create_github_release(token, version, zip_path):
     print(f"[+] {zip_path} GitHub'a yükleniyor... Bu işlem dosya boyutuna bağlı olarak 1-2 dakika sürebilir.")
     with open(zip_path, "rb") as f:
         upload_resp = requests.post(
-            f"{upload_url}?name=yerel-agent.zip",
+            f"{upload_url}?name=lesh-agent.zip",
             headers={
                 "Authorization": f"token {token}",
                 "Content-Type": "application/zip",

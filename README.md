@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="assets/logo.jpg" width="250" alt="Lesh Logo">
+</p>
+
 # Lesh - Local Agent Coder
 
 Lesh is an advanced, autonomous AI coding agent designed to run primarily locally, ensuring total privacy and control over your data. With its powerful self-updating mechanism and elegant Material Design 3 interface, Lesh streamlines your coding workflow and acts as your personalized AI pair programmer.
@@ -15,9 +19,9 @@ Lesh is an advanced, autonomous AI coding agent designed to run primarily locall
 
 ## Quick Start
 
-1. Download the latest `yerel-agent.zip` (Lesh Agent) from the [Releases](../../releases) tab.
+1. Download the latest `lesh-agent.zip` (Lesh Agent) from the [Releases](../../releases) tab.
 2. Extract the folder to a desired location on your computer.
-3. Run `yerel-agent.exe`.
+3. Run `lesh-agent.exe`.
 4. Click **Select Workspace** to bind a project folder.
 5. (Optional) Enter your API tokens for cloud providers or select `Yerel (Ollama)` to run completely locally.
 6. Start coding!

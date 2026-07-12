@@ -7,7 +7,7 @@ import threading
 
 CURRENT_VERSION = "1.0.3"
 REPO_OWNER = "Xbygone"
-REPO_NAME = "yerel-agent"
+REPO_NAME = "lesh-agent"
 GITHUB_API_URL = f"https://api.github.com/repos/{REPO_OWNER}/{REPO_NAME}/releases/latest"
 
 def check_for_updates(status_callback=None, complete_callback=None):
@@ -59,7 +59,7 @@ def check_for_updates(status_callback=None, complete_callback=None):
                 return
 
             # Zip'i indir
-            zip_path = "yerel-agent.zip"
+            zip_path = "lesh-agent.zip"
             with requests.get(download_url, stream=True) as r:
                 r.raise_for_status()
                 with open(zip_path, 'wb') as f:
@@ -81,7 +81,7 @@ def check_for_updates(status_callback=None, complete_callback=None):
             if status_callback:
                 status_callback("Ayıklama tamamlandı. Güncelleme hazırlanıyor...")
 
-            # Eğer zip dosyasının içinde bir klasör daha varsa (örn: yerel-agent/yerel-agent.exe), kopyalama yolunu ona göre ayarla
+            # Eğer zip dosyasının içinde bir klasör daha varsa (örn: lesh-agent/lesh-agent.exe), kopyalama yolunu ona göre ayarla
             extracted_items = os.listdir(temp_dir)
             source_dir = temp_dir
             if len(extracted_items) == 1 and os.path.isdir(os.path.join(temp_dir, extracted_items[0])):
@@ -101,7 +101,7 @@ rmdir /s /q "{temp_dir}"
 del /q "{zip_path}"
 
 :: Uygulamayi yeniden baslat
-start yerel-agent.exe
+start lesh-agent.exe
 
 :: Bat dosyasinin kendini silmesi
 (goto) 2>nul & del "%~f0"
