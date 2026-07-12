@@ -1,6 +1,7 @@
 import os
 import threading
 import time
+import json
 from tkinter import filedialog
 import subprocess
 
@@ -9,6 +10,24 @@ from ollama_client import check_ollama_status, get_models, ensure_model_exists
 from agent_engine import AgentState
 from git_manager import get_diff, commit_and_push
 from tools import read_file
+
+CONFIG_FILE = os.path.expanduser("~/.yerel_agent_config.json")
+
+def load_config():
+    if os.path.exists(CONFIG_FILE):
+        try:
+            with open(CONFIG_FILE, "r") as f:
+                return json.load(f)
+        except:
+            return {}
+    return {}
+
+def save_config(config):
+    try:
+        with open(CONFIG_FILE, "w") as f:
+            json.dump(config, f)
+    except:
+        pass
 
 
 class MainApp:
@@ -29,6 +48,10 @@ class MainApp:
         
         # Wire up Combobox
         self.ui.combo_provider.configure(command=self.on_provider_change)
+        self.ui.combo_model.configure(command=self.on_model_change)
+        
+        # Token alanı değiştiğinde kaydet
+        self.ui.entry_pat.bind("<KeyRelease>", self.on_token_change)
 
         # Bind Enter key in chat input (Shift+Enter = newline)
         self.ui.chat_input.bind("<Return>", self._on_enter)
@@ -39,6 +62,33 @@ class MainApp:
 
         # Check Ollama on startup
         threading.Thread(target=self._check_ollama, daemon=True).start()
+        
+        # Load config
+        self._load_initial_config()
+
+    def _load_initial_config(self):
+        config = load_config()
+        self.workspace_path = config.get("last_workspace", None)
+        if self.workspace_path and os.path.exists(self.workspace_path):
+            self.ui.btn_select_folder.configure(text=f"📁  {os.path.basename(self.workspace_path)}")
+            self._populate_tree(self.workspace_path)
+            self.refresh_diff()
+            self._make_agent()
+            
+            # Load chat history
+            history_path = os.path.join(self.workspace_path, "chat_history.json")
+            if os.path.exists(history_path):
+                try:
+                    with open(history_path, "r", encoding="utf-8") as f:
+                        history = json.load(f)
+                        if self.agent:
+                            self.agent.messages = history
+                            self.ui.append_chat("\n[SİSTEM] Önceki sohbet geçmişi yüklendi.\n", tag="system")
+                except:
+                    pass
+        
+        # Trigger provider change to load initial models and tokens
+        self.on_provider_change(self.ui.combo_provider.get())
 
     # ─────────────────────────────────────────────
     # OLLAMA INIT & UI EVENTS
@@ -52,43 +102,68 @@ class MainApp:
         self._set_status("● Modeller kontrol ediliyor...", "#EAB308")
 
         def progress(msg):
-            self.ui.after(0, lambda: self._set_status(f"● {msg}", "#EAB308"))
-
-        ensure_model_exists("qwen2.5-coder:7b", progress)
-
-        models = get_models()
-        if models:
-            self._set_status("● Ollama: Aktif", "#6DD58C")
-        else:
-            self._set_status("● Ollama: Model Yok", "#EF4444")
+            self._set_status("● Ollama bulunamadı", "#EF4444")
+            return
+        ensure_model_exists("qwen2.5-coder:7b", lambda msg: self._set_status(f"● {msg}", "#EAB308"))
+        self._set_status("● Ollama: Aktif", "#6DD58C")
 
     def _set_status(self, text, color):
         self.ui.after(0, lambda: self.ui.lbl_status.configure(text=text, text_color=color))
 
+    # ─────────────────────────────────────────────
+    # EVENTS
+    # ─────────────────────────────────────────────
+    def on_token_change(self, event):
+        provider = self.ui.combo_provider.get()
+        token = self.ui.entry_pat.get().strip()
+        config = load_config()
+        config[provider] = token
+        save_config(config)
+
+    def on_model_change(self, choice):
+        if self.agent:
+            model_str = choice.split(" ")[0]
+            self.agent.model = model_str
+            self.agent.provider = self.ui.combo_provider.get()
+            self._log(f"Model değiştirildi: {model_str}")
+
     def on_provider_change(self, choice):
+        config = load_config()
+        saved_token = config.get(choice, "")
+        
+        self.ui.entry_pat.delete(0, "end")
+        self.ui.entry_pat.insert(0, saved_token)
+
         if "Yerel" in choice:
-            self.ui.lbl_token.configure(text="API Key (Yerel için opsiyonel)")
-            self.ui.combo_model.configure(values=["qwen2.5-coder:7b", "qwen3.5:4b"])
+            self.ui.lbl_token.grid_remove()
+            self.ui.entry_pat.grid_remove()
+            self.ui.combo_model.configure(values=["qwen2.5-coder:7b", "qwen3.5:4b", "deepseek-r1:8b"])
             self.ui.combo_model.set("qwen2.5-coder:7b")
-        elif "GitHub Models" in choice:
-            self.ui.lbl_token.configure(text="GitHub PAT Token")
-            gh_models = [
-                "deepseek-r1-0528 (Reasoning)", "llama-4-scout-17b-16e (Reasoning)", "o4-mini (Reasoning)",
-                "codestral-25.01 (Coding)", "gpt-4.1-mini (Coding)", "gpt-4.1 (Coding)",
-                "phi-4-mini-instruct (Routine)", "gpt-4.1-nano (Routine)"
-            ]
-            self.ui.combo_model.configure(values=gh_models)
-            self.ui.combo_model.set("gpt-4.1-mini (Coding)")
-        elif "Google AI Studio" in choice:
-            self.ui.lbl_token.configure(text="Google API Key")
-            gg_models = ['gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-1.5-pro']
-            self.ui.combo_model.configure(values=gg_models)
-            self.ui.combo_model.set("gemini-2.0-flash")
-        elif "Groq Cloud" in choice:
-            self.ui.lbl_token.configure(text="Groq API Key")
-            groq_models = ['qwen-2.5-coder-32b', 'llama-3.3-70b']
-            self.ui.combo_model.configure(values=groq_models)
-            self.ui.combo_model.set("qwen-2.5-coder-32b")
+        else:
+            self.ui.lbl_token.grid()
+            self.ui.entry_pat.grid()
+            
+            if "GitHub Models" in choice:
+                self.ui.lbl_token.configure(text="GitHub PAT Token")
+                gh_models = [
+                    "deepseek-r1-0528 (Reasoning)", "llama-4-scout-17b-16e (Reasoning)", "o4-mini (Reasoning)",
+                    "codestral-25.01 (Coding)", "gpt-4.1-mini (Coding)", "gpt-4.1 (Coding)",
+                    "phi-4-mini-instruct (Routine)"
+                ]
+                self.ui.combo_model.configure(values=gh_models)
+                self.ui.combo_model.set("gpt-4.1-mini (Coding)")
+            elif "Google AI Studio" in choice:
+                self.ui.lbl_token.configure(text="Google API Key")
+                gg_models = ['gemini-2.0-flash', 'gemini-1.5-pro', 'gemini-1.5-flash']
+                self.ui.combo_model.configure(values=gg_models)
+                self.ui.combo_model.set("gemini-2.0-flash")
+            elif "Groq Cloud" in choice:
+                self.ui.lbl_token.configure(text="Groq API Key")
+                groq_models = ['deepseek-r1-distill-llama-70b', 'llama-3.3-70b-versatile', 'qwen-2.5-coder-32b']
+                self.ui.combo_model.configure(values=groq_models)
+                self.ui.combo_model.set("deepseek-r1-distill-llama-70b")
+        
+        self.on_model_change(self.ui.combo_model.get())
 
     def on_tree_select(self, event):
         if not self.agent or not self.workspace_path:
@@ -99,8 +174,6 @@ class MainApp:
             return
             
         item = selected_item[0]
-        # Ağaç yapısından path oluşturmak gerekir. Şimdilik sadece adını alıp workspace root'tan okumayı deniyoruz.
-        # Daha doğru bir Treeview path tespiti:
         path_parts = []
         current = item
         while current:
@@ -108,15 +181,12 @@ class MainApp:
             path_parts.insert(0, text)
             current = self.ui.tree.parent(current)
             
-        # path_parts[0] genellikle root klasörünün adıdır (os.path.basename(workspace_path)).
-        # Bunu atlayıp alt yolu birleştiriyoruz.
         if len(path_parts) > 1:
             rel_path = os.path.join(*path_parts[1:])
         else:
             rel_path = ""
             
         if rel_path:
-            import json
             read_res = json.loads(read_file(rel_path, self.workspace_path))
             if read_res.get("success"):
                 content = read_res["content"]
@@ -132,14 +202,29 @@ class MainApp:
         if not path:
             return
         self.workspace_path = path
+        
+        config = load_config()
+        config["last_workspace"] = path
+        save_config(config)
+        
         self.ui.btn_select_folder.configure(text=f"📁  {os.path.basename(path)}")
         self._populate_tree(path)
         self.refresh_diff()
         self._make_agent()
         self._log(f"Çalışma alanı: {path}")
+        
+        history_path = os.path.join(self.workspace_path, "chat_history.json")
+        if os.path.exists(history_path):
+            try:
+                with open(history_path, "r", encoding="utf-8") as f:
+                    history = json.load(f)
+                    if self.agent:
+                        self.agent.messages = history
+                        self.ui.append_chat("\n[SİSTEM] Önceki sohbet geçmişi yüklendi.\n", tag="system")
+            except:
+                pass
 
     def _make_agent(self):
-        # Seçili modelin içindeki grup adını temizle, örn "gpt-4.1-mini (Coding)" -> "gpt-4.1-mini"
         model_str = self.ui.combo_model.get()
         actual_model = model_str.split(" ")[0]
         
@@ -195,11 +280,13 @@ class MainApp:
         if "Yerel" not in provider and not token:
             self.ui.append_chat(f"\n[HATA] {provider} kullanmak için sol panele API Key / Token girmelisiniz!\n", tag="system")
             return
+            
+        # Update token on send just to be sure
+        self.on_token_change(None)
 
         self.ui.chat_input.delete("1.0", "end")
         self.ui.append_chat(f"\n━━━ Siz ━━━\n{text}\n\n", tag="user")
 
-        # Update model & token in case user changed it
         model_str = self.ui.combo_model.get().split(" ")[0]
         if self.agent:
             self.agent.provider = provider
@@ -214,6 +301,15 @@ class MainApp:
         def _run():
             self.agent.run()
             self._flush()
+            
+            # Sohbet geçmişini kaydet
+            try:
+                history_path = os.path.join(self.workspace_path, "chat_history.json")
+                with open(history_path, "w", encoding="utf-8") as f:
+                    json.dump(self.agent.messages, f, ensure_ascii=False, indent=2)
+            except Exception as e:
+                self._log(f"[UYARI] Geçmiş kaydedilemedi: {e}")
+                
             self.ui.after(0, self.refresh_diff)
             self.ui.after(0, lambda: self._populate_tree(self.workspace_path))
             self.ui.after(0, lambda: self.ui.btn_send.configure(state="normal", text="Gönder"))

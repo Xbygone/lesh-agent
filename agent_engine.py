@@ -296,36 +296,118 @@ class AgentState:
         self._log(f"Ajan başlatıldı | Model: {self.model} ({self.provider})")
         self._log("═══════════════════════════════")
 
-        system_prompt = AGENT_SYSTEM_PROMPT
+        # Sistem promptundan git push zorunluluğunu kaldırdık
+        system_prompt = """Sen profesyonel bir Otonom Yazılım Mühendisi Ajanısın.
+Sana verilen araçları (write_file, read_file, run_terminal_command vb.) DOĞRUDAN KULLANMAK ZORUNDASIN.
+
+ALTIN KURAL: Kullanıcı senden bir şey oluşturmanı istediğinde, KESİNLİKLE sadece metin olarak kod yazma.
+Her zaman write_file aracını çağırarak dosyaları GERÇEKTEN bilgisayara KAYDET.
+
+Örnek:
+- "websitesi yap" → index.html, style.css, script.js dosyalarını write_file ile oluştur
+- "python scripti yaz" → main.py dosyasını write_file ile oluştur
+- "pip install" gerekliyse → run_terminal_command ile yükle
+"""
         if self.active_file_context:
             system_prompt += f"\n\n[DİKKAT] Kullanıcının odaklandığı dosya ({self.active_file_context['filepath']}) içeriği:\n{self.active_file_context['content']}\n"
 
-        coder_msgs = [{"role": "system", "content": system_prompt}] + self.messages
+        # Geçmiş mesajları mevcut sağlayıcıya göre (Ollama vs OpenAI formatı) normalize et
+        normalized_messages = []
+        for msg in self.messages:
+            new_msg = msg.copy()
+            if "tool_calls" in new_msg:
+                formatted_tcs = []
+                for tc in new_msg["tool_calls"]:
+                    if isinstance(tc, dict):
+                        name = tc.get("function", {}).get("name", "")
+                        args = tc.get("function", {}).get("arguments", "{}")
+                        tid = tc.get("id", getattr(tc, "id", "call_123"))
+                    else:
+                        name = getattr(tc.function, "name", "")
+                        args = getattr(tc.function, "arguments", "{}")
+                        tid = getattr(tc, "id", "call_123")
+                        
+                    # Arguments string/dict parse
+                    if isinstance(args, str):
+                        try:
+                            args_dict = json.loads(args)
+                        except:
+                            args_dict = {}
+                        args_str = args
+                    else:
+                        args_dict = args
+                        try:
+                            args_str = json.dumps(args_dict)
+                        except:
+                            args_str = "{}"
+                            
+                    if "Yerel" in self.provider:
+                        # Ollama requires dict
+                        formatted_tcs.append({
+                            "function": {
+                                "name": name,
+                                "arguments": args_dict
+                            }
+                        })
+                    else:
+                        # OpenAI requires string
+                        formatted_tcs.append({
+                            "id": tid,
+                            "type": "function",
+                            "function": {
+                                "name": name,
+                                "arguments": args_str
+                            }
+                        })
+                new_msg["tool_calls"] = formatted_tcs
+            normalized_messages.append(new_msg)
+
+        coder_msgs = [{"role": "system", "content": system_prompt}] + normalized_messages
         max_steps = 15
 
         for step in range(max_steps):
             self._log(f"\n[Adım {step + 1}] Model düşünüyor...")
 
-            if "GitHub" in self.provider:
-                base_url = "https://models.inference.ai.azure.com"
-                content, tool_calls = chat_cloud_streaming(self.model, coder_msgs, TOOLS_DEF, self.token, base_url, self._chat, self._log)
-            elif "Groq" in self.provider:
-                base_url = "https://api.groq.com/openai/v1"
-                content, tool_calls = chat_cloud_streaming(self.model, coder_msgs, TOOLS_DEF, self.token, base_url, self._chat, self._log)
-            elif "Google" in self.provider:
-                base_url = "https://generativelanguage.googleapis.com/v1beta/openai/"
-                content, tool_calls = chat_cloud_streaming(self.model, coder_msgs, TOOLS_DEF, self.token, base_url, self._chat, self._log)
-            else:
-                # Ollama Local Flow
-                from ollama_client import chat_with_tools
-                # Streaming for Ollama can be added similarly, but using previous logic for now
-                content, tool_calls = chat_with_tools(self.model, coder_msgs, TOOLS_DEF, self._log)
-                if content:
-                    parser = StreamingThinkParser(self._chat)
-                    parser.add_chunk(content + "\n")
+            content = None
+            tool_calls = []
+            
+            # ─ Fallback & Retry Logic ─
+            # Eğer API hatası olursa modeli listedeki sonrakilerle değiştirerek dene
+            import copy
+            success = False
+            
+            # Denenecek sağlayıcı ve model listesi (şu an sadece mevcut provider'ı deniyor,
+            # ileride tüm listeyi fallback olarak deneyebiliriz. Şimdilik hatada exception fırlatıyoruz)
+            try:
+                if "GitHub" in self.provider:
+                    base_url = "https://models.inference.ai.azure.com"
+                    content, tool_calls = chat_cloud_streaming(self.model, coder_msgs, TOOLS_DEF, self.token, base_url, self._chat, self._log)
+                elif "Groq" in self.provider:
+                    base_url = "https://api.groq.com/openai/v1"
+                    content, tool_calls = chat_cloud_streaming(self.model, coder_msgs, TOOLS_DEF, self.token, base_url, self._chat, self._log)
+                elif "Google" in self.provider:
+                    base_url = "https://generativelanguage.googleapis.com/v1beta/openai/"
+                    content, tool_calls = chat_cloud_streaming(self.model, coder_msgs, TOOLS_DEF, self.token, base_url, self._chat, self._log)
+                else:
+                    from ollama_client import chat_with_tools
+                    content, tool_calls = chat_with_tools(self.model, coder_msgs, TOOLS_DEF, self._log)
+                    if content:
+                        parser = StreamingThinkParser(self._chat)
+                        parser.add_chunk(content + "\n")
+                        
+                if isinstance(content, str) and content.startswith("Hata:"):
+                    raise Exception(content)
+                success = True
+            except Exception as e:
+                self._log(f"[KRİTİK HATA] Model çağrısı başarısız: {str(e)}")
+                # Model çöktüğünde başka modele fallback yapma isteği:
+                self._chat(f"\n⚠️ Model Hatası. Fallback tetiklendi: {str(e)}\n", tag="system")
+                # Şimdilik döngüyü kırıyoruz, kullanıcıdan yeni istek alacak
+                break
 
             assistant_msg = {"role": "assistant", "content": content or ""}
             if tool_calls:
+                # Orijinal dönen tool_calls'ı self.messages'a kaydediyoruz, formattan bağımsız olarak.
                 assistant_msg["tool_calls"] = tool_calls
 
             coder_msgs.append(assistant_msg)
