@@ -1,7 +1,8 @@
 import subprocess
+import urllib.parse
 
-def run_git_command(command, workspace_path):
-    """Git komutunu verilen çalışma dizininde çalıştırır."""
+def run_git_command(command, workspace_path, timeout=15):
+    """Git komutunu verilen çalışma dizininde zaman sınırı ile çalıştırır."""
     try:
         result = subprocess.run(
             command,
@@ -9,9 +10,12 @@ def run_git_command(command, workspace_path):
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,
-            check=False
+            check=False,
+            timeout=timeout
         )
         return {"success": result.returncode == 0, "output": result.stdout, "error": result.stderr}
+    except subprocess.TimeoutExpired:
+        return {"success": False, "output": "", "error": f"Komut zaman aşımına uğradı (>{timeout}s)."}
     except Exception as e:
         return {"success": False, "output": "", "error": str(e)}
 
@@ -34,7 +38,13 @@ def is_git_repo(workspace_path):
     res = run_git_command(["git", "rev-parse", "--is-inside-work-tree"], workspace_path)
     return res["success"]
 
-def commit_and_push(workspace_path, commit_message):
+def get_remote_url(workspace_path):
+    res = run_git_command(["git", "config", "--get", "remote.origin.url"], workspace_path)
+    if res["success"]:
+        return res["output"].strip()
+    return ""
+
+def commit_and_push(workspace_path, commit_message, pat_token=None):
     """Değişiklikleri add, commit ve push yapar, terminal logunu döndürür."""
     log = ""
     branch = get_current_branch(workspace_path)
@@ -52,8 +62,33 @@ def commit_and_push(workspace_path, commit_message):
     if "nothing to commit" in commit_res['output'] or "working tree clean" in commit_res['output']:
         return True, log + "\n[INFO] Gönderilecek değişiklik bulunamadı."
         
-    # git push
-    push_res = run_git_command(["git", "push", "origin", branch], workspace_path)
-    log += f"> git push origin {branch}\n{push_res['output']}{push_res['error']}\n"
+    # Push command preparation
+    remote_url = get_remote_url(workspace_path)
+    push_command = ["git", "push", "origin", branch]
+    
+    if pat_token and remote_url.startswith("https://"):
+        # Şifreli (token içeren) push URL'si oluştur
+        try:
+            parsed = urllib.parse.urlparse(remote_url)
+            # URL'de zaten bir username/password varsa kaldırıp token ekliyoruz
+            netloc = f"{pat_token}@{parsed.hostname}"
+            if parsed.port:
+                netloc += f":{parsed.port}"
+            secure_url = parsed._replace(netloc=netloc).geturl()
+            push_command = ["git", "push", secure_url, branch]
+            log += f"> git push https://<PAT_TOKEN_GIZLENDI>@{parsed.hostname}{parsed.path} {branch}\n"
+        except Exception:
+            log += f"> git push origin {branch}\n"
+    else:
+        log += f"> git push origin {branch}\n"
+    
+    push_res = run_git_command(push_command, workspace_path, timeout=30) # Push işlemi için biraz daha uzun timeout verelim
+    
+    # Güvenlik: Eğer hata mesajında token geçerse gizle
+    error_output = push_res['error']
+    if pat_token and pat_token in error_output:
+        error_output = error_output.replace(pat_token, "<PAT_TOKEN_GIZLENDI>")
+        
+    log += f"{push_res['output']}{error_output}\n"
     
     return push_res["success"], log

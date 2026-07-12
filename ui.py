@@ -15,6 +15,7 @@ TEXT_PRIMARY = "#E3E3E3"
 TEXT_SECONDARY = "#C4C7C5"
 SUCCESS_COLOR = "#6DD58C"
 WARN_COLOR = "#FCD34D"
+THINK_COLOR = "#9AA0A6"
 FONT_FAMILY = "Segoe UI"
 
 ctk.set_appearance_mode("Dark")
@@ -28,8 +29,8 @@ class AppUI(ctk.CTk):
         self.geometry("1440x900")
         self.configure(fg_color=BG_COLOR)
 
-        # Layout: Sidebar(260) | Chat(flex) | Inspector(400)
-        self.grid_columnconfigure(0, weight=0, minsize=260)
+        # Layout: Sidebar(280) | Chat(flex) | Inspector(400)
+        self.grid_columnconfigure(0, weight=0, minsize=280)
         self.grid_columnconfigure(1, weight=1)
         self.grid_columnconfigure(2, weight=0, minsize=420)
         self.grid_rowconfigure(0, weight=1)
@@ -48,7 +49,7 @@ class AppUI(ctk.CTk):
             border_width=1, border_color=BORDER_COLOR
         )
         self.sidebar.grid(row=0, column=0, sticky="nsew")
-        self.sidebar.grid_rowconfigure(2, weight=1)
+        self.sidebar.grid_rowconfigure(4, weight=1)  # Treeview expands
         self.sidebar.grid_columnconfigure(0, weight=1)
 
         # Header
@@ -56,6 +57,14 @@ class AppUI(ctk.CTk):
             self.sidebar, text="✦ Yerel Ajan",
             font=(FONT_FAMILY, 20, "bold"), text_color=PRIMARY_COLOR
         ).grid(row=0, column=0, sticky="w", padx=20, pady=(28, 16))
+        
+        # PAT Input
+        self.entry_pat = ctk.CTkEntry(
+            self.sidebar, placeholder_text="GitHub PAT Token", show="*",
+            fg_color=BG_COLOR, border_color=BORDER_COLOR, height=36,
+            font=(FONT_FAMILY, 12)
+        )
+        self.entry_pat.grid(row=1, column=0, padx=16, pady=(0, 16), sticky="ew")
 
         # Workspace button
         self.btn_select_folder = ctk.CTkButton(
@@ -65,33 +74,46 @@ class AppUI(ctk.CTk):
             text_color=TEXT_PRIMARY, font=(FONT_FAMILY, 13, "bold"),
             corner_radius=20, height=44
         )
-        self.btn_select_folder.grid(row=1, column=0, padx=16, pady=(0, 16), sticky="ew")
+        self.btn_select_folder.grid(row=2, column=0, padx=16, pady=(0, 16), sticky="ew")
 
         # File tree
         tree_frame = ctk.CTkFrame(self.sidebar, fg_color="transparent")
-        tree_frame.grid(row=2, column=0, padx=16, pady=0, sticky="nsew")
+        tree_frame.grid(row=4, column=0, padx=16, pady=0, sticky="nsew")
         tree_frame.grid_rowconfigure(1, weight=1)
         tree_frame.grid_columnconfigure(0, weight=1)
 
         ctk.CTkLabel(
-            tree_frame, text="DOSYALAR",
+            tree_frame, text="DOSYALAR (Tıklayarak Bağlama Ekle)",
             font=(FONT_FAMILY, 10, "bold"), text_color=TEXT_SECONDARY
         ).grid(row=0, column=0, sticky="w", pady=(0, 6))
 
         self.tree = ttk.Treeview(tree_frame, show="tree", selectmode="browse")
         self.tree.grid(row=1, column=0, sticky="nsew")
 
-        # Model card — single selector
+        # Model card — double selector (Provider -> Model)
         model_card = ctk.CTkFrame(self.sidebar, fg_color=BG_COLOR, corner_radius=14)
-        model_card.grid(row=3, column=0, padx=16, pady=16, sticky="ew")
+        model_card.grid(row=5, column=0, padx=16, pady=16, sticky="ew")
+
+        ctk.CTkLabel(
+            model_card, text="Sağlayıcı (Provider)",
+            font=(FONT_FAMILY, 12), text_color=TEXT_SECONDARY
+        ).pack(anchor="w", padx=14, pady=(14, 4))
+
+        self.combo_provider = ctk.CTkComboBox(
+            model_card, values=["Yerel (Ollama)", "GitHub Models (Bulut)"],
+            fg_color=SURFACE_COLOR, border_color=BORDER_COLOR,
+            button_color=SURFACE_COLOR, text_color=TEXT_PRIMARY,
+            font=(FONT_FAMILY, 13)
+        )
+        self.combo_provider.pack(fill="x", padx=14, pady=(0, 10))
 
         ctk.CTkLabel(
             model_card, text="Model",
             font=(FONT_FAMILY, 12), text_color=TEXT_SECONDARY
-        ).pack(anchor="w", padx=14, pady=(14, 4))
+        ).pack(anchor="w", padx=14, pady=(4, 4))
 
         self.combo_model = ctk.CTkComboBox(
-            model_card, values=["qwen2.5-coder:7b"],
+            model_card, values=["qwen2.5-coder:7b", "qwen3.5:4b"],
             fg_color=SURFACE_COLOR, border_color=BORDER_COLOR,
             button_color=SURFACE_COLOR, text_color=TEXT_PRIMARY,
             font=(FONT_FAMILY, 13)
@@ -100,10 +122,10 @@ class AppUI(ctk.CTk):
 
         # Status
         self.lbl_status = ctk.CTkLabel(
-            self.sidebar, text="● Ollama aranıyor...",
+            self.sidebar, text="● Hazır",
             text_color=WARN_COLOR, font=(FONT_FAMILY, 12)
         )
-        self.lbl_status.grid(row=4, column=0, padx=20, pady=(0, 20), sticky="w")
+        self.lbl_status.grid(row=6, column=0, padx=20, pady=(0, 20), sticky="w")
 
     # ─────────────────────────────────────────────
     # CENTER CHAT PANEL
@@ -125,6 +147,7 @@ class AppUI(ctk.CTk):
         self.chat_display.tag_config("system", foreground=TEXT_SECONDARY)
         self.chat_display.tag_config("user", foreground=PRIMARY_COLOR)
         self.chat_display.tag_config("tool_ok", foreground=SUCCESS_COLOR)
+        self.chat_display.tag_config("think", foreground=THINK_COLOR)  # Görsel olarak ayrışan gri ton
 
         # Input bar
         bar = ctk.CTkFrame(self.chat_panel, fg_color=SURFACE_COLOR, corner_radius=22)

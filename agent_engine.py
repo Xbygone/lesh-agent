@@ -1,6 +1,7 @@
 import json
-from ollama_client import chat_with_tools, chat_stream_simple
+import requests
 from tools import read_file, write_file, search_web, list_directory, run_terminal_command
+import re
 
 AGENT_SYSTEM_PROMPT = """Sen profesyonel bir Otonom Yazılım Mühendisi Ajanısın.
 Sana verilen araçları (write_file, read_file, run_terminal_command vb.) DOĞRUDAN KULLANMAK ZORUNDASIN.
@@ -13,7 +14,7 @@ Her zaman write_file aracını çağırarak dosyaları GERÇEKTEN bilgisayara KA
 - "python scripti yaz" → main.py dosyasını write_file ile oluştur
 - "pip install" gerekliyse → run_terminal_command ile yükle
 
-Görev bitince: run_terminal_command ile "git add . && git commit -m '...' && git push" çalıştır.
+Görev bitince: Tüm dosyaları oluşturduktan sonra run_terminal_command ile "git add . && git commit -m 'AI Update' && git push" çalıştır.
 """
 
 TOOLS_DEF = [
@@ -25,14 +26,8 @@ TOOLS_DEF = [
             'parameters': {
                 'type': 'object',
                 'properties': {
-                    'filepath': {
-                        'type': 'string',
-                        'description': 'File path relative to workspace (e.g. index.html, src/app.py)'
-                    },
-                    'content': {
-                        'type': 'string',
-                        'description': 'Full content to write into the file'
-                    }
+                    'filepath': {'type': 'string', 'description': 'File path relative to workspace'},
+                    'content': {'type': 'string', 'description': 'Full content to write into the file'}
                 },
                 'required': ['filepath', 'content']
             }
@@ -46,10 +41,7 @@ TOOLS_DEF = [
             'parameters': {
                 'type': 'object',
                 'properties': {
-                    'filepath': {
-                        'type': 'string',
-                        'description': 'File path relative to workspace'
-                    }
+                    'filepath': {'type': 'string', 'description': 'File path relative to workspace'}
                 },
                 'required': ['filepath']
             }
@@ -63,10 +55,7 @@ TOOLS_DEF = [
             'parameters': {
                 'type': 'object',
                 'properties': {
-                    'command': {
-                        'type': 'string',
-                        'description': 'Command to execute'
-                    }
+                    'command': {'type': 'string', 'description': 'Command to execute'}
                 },
                 'required': ['command']
             }
@@ -80,10 +69,7 @@ TOOLS_DEF = [
             'parameters': {
                 'type': 'object',
                 'properties': {
-                    'filepath': {
-                        'type': 'string',
-                        'description': 'Directory path (use "." for workspace root)'
-                    }
+                    'filepath': {'type': 'string', 'description': 'Directory path (use "." for workspace root)'}
                 },
                 'required': ['filepath']
             }
@@ -97,10 +83,7 @@ TOOLS_DEF = [
             'parameters': {
                 'type': 'object',
                 'properties': {
-                    'query': {
-                        'type': 'string',
-                        'description': 'Search query'
-                    }
+                    'query': {'type': 'string', 'description': 'Search query'}
                 },
                 'required': ['query']
             }
@@ -108,41 +91,114 @@ TOOLS_DEF = [
     }
 ]
 
+def chat_github_models(model_name, messages, tools, token, log_callback=None):
+    """GitHub Models API'ye requests ile OpenAI uyumlu istek atar (Bağımlılığı artırmamak için)"""
+    url = "https://models.inference.ai.azure.com/chat/completions"
+    headers = {
+        "Authorization": f"Bearer {token}",
+        "Content-Type": "application/json"
+    }
+    payload = {
+        "model": model_name,
+        "messages": messages,
+        "tools": tools,
+        "stream": False # Tool calling daha stabil çalışsın diye False
+    }
+    
+    try:
+        if log_callback:
+            log_callback(f"[MODEL] GitHub Models ({model_name}) çağrılıyor...")
+        
+        response = requests.post(url, headers=headers, json=payload, timeout=60)
+        response.raise_for_status()
+        data = response.json()
+        
+        msg = data['choices'][0]['message']
+        content = msg.get('content', '')
+        tool_calls = msg.get('tool_calls', [])
+        
+        if log_callback:
+            if tool_calls:
+                names = [tc['function']['name'] for tc in tool_calls]
+                log_callback(f"[ARAÇ] Çağrılacak araçlar: {names}")
+            elif content:
+                log_callback(f"[CEVAP] Model yanıt verdi.")
+                
+        return content, tool_calls
+    except Exception as e:
+        if log_callback:
+            log_callback(f"[HATA] GitHub Models hatası: {str(e)}")
+        return f"Hata: {str(e)}", []
+
+
+def parse_think_tags(text, chat_callback):
+    """<think> etiketlerini ayırarak UI'a doğru renklerle gönderir."""
+    if not text:
+        return
+        
+    parts = re.split(r'(</?think>)', text)
+    is_thinking = False
+    
+    for part in parts:
+        if part == '<think>':
+            is_thinking = True
+            chat_callback("\n[DÜŞÜNÜYOR...]\n", tag="think")
+            continue
+        elif part == '</think>':
+            is_thinking = False
+            chat_callback("\n", tag=None)
+            continue
+            
+        if part:
+            if is_thinking:
+                chat_callback(part, tag="think")
+            else:
+                chat_callback(part, tag=None)
+
 
 class AgentState:
-    def __init__(self, model, workspace_path, chat_callback, log_callback):
-        """
-        chat_callback: UI sohbet penceresine metin yazar
-        log_callback:  Sağ paneldeki Terminal Log'a yazar
-        """
+    def __init__(self, provider, model, workspace_path, token, chat_callback, log_callback):
+        self.provider = provider # 'Yerel (Ollama)' veya 'GitHub Models (Bulut)'
         self.model = model
         self.workspace_path = workspace_path
+        self.token = token
         self.chat_callback = chat_callback
         self.log_callback = log_callback
         self.messages = []
+        self.active_file_context = None
 
     def add_user_message(self, text):
         self.messages.append({"role": "user", "content": text})
 
+    def set_active_file(self, filepath, content):
+        """Kullanıcı ağaçtan bir dosya seçtiğinde context'i günceller"""
+        self.active_file_context = {"filepath": filepath, "content": content}
+        self._log(f"Bağlama eklendi: {filepath}")
+
     def _log(self, text):
-        """Terminal log'a yazar."""
         if self.log_callback:
             self.log_callback(text)
 
     def _chat(self, text, tag=None):
-        """Sohbet penceresine yazar."""
         if self.chat_callback:
             self.chat_callback(text, tag=tag)
 
     def _execute_tool(self, tool_call):
-        """
-        Tek bir tool_call nesnesini çalıştırır.
-        tool_call.function.name  → araç adı
-        tool_call.function.arguments → dict
-        """
-        # DÜZELTME: Pydantic nesnesi - dict değil, attribute erişimi
-        action = tool_call.function.name
-        args = tool_call.function.arguments  # Bu zaten dict
+        # GitHub ve Ollama API'leri tool call objesini farklı dict formatlarında döndürebilir
+        if isinstance(tool_call, dict):
+            action = tool_call.get('function', {}).get('name', '')
+            args_str = tool_call.get('function', {}).get('arguments', '{}')
+            if isinstance(args_str, str):
+                try:
+                    args = json.loads(args_str)
+                except:
+                    args = {}
+            else:
+                args = args_str
+        else:
+            # Ollama Pydantic
+            action = tool_call.function.name
+            args = tool_call.function.arguments
 
         self._log(f"▶ {action}({list(args.keys())})")
         self._chat(f"\n🛠️  {action}: {args.get('filepath') or args.get('command') or args.get('query', '')}\n", tag="system")
@@ -166,8 +222,12 @@ class AgentState:
             elif action == "run_terminal_command":
                 cmd = args.get("command", "")
                 self._log(f"$ {cmd}")
+                
+                # Sadece ajan çağırırken git push içerisinde PAT token kullanması için komutu değiştirme:
+                # Ancak bunu git_manager üzerinden yapmıyoruz, doğrudan komut çalıştırıyoruz.
+                # Terminal command güvenliği için komut timeout içerebilir (tools.py'yi ona göre güncelleyebiliriz)
                 result = run_terminal_command(cmd, self.workspace_path)
-                # stdout'u log'a bas
+                
                 parsed = json.loads(result)
                 if parsed.get("stdout"):
                     self._log(parsed["stdout"][:500])
@@ -189,53 +249,69 @@ class AgentState:
         return result
 
     def run(self):
-        """
-        Ana ajan döngüsü. Her zaman araç çağrısı modunda çalışır.
-        """
         self._log("═══════════════════════════════")
-        self._log(f"Ajan başlatıldı | Model: {self.model}")
+        self._log(f"Ajan başlatıldı | Model: {self.model} ({self.provider})")
         self._log("═══════════════════════════════")
 
-        coder_msgs = [{"role": "system", "content": AGENT_SYSTEM_PROMPT}] + self.messages
-        max_steps = 20
+        system_prompt = AGENT_SYSTEM_PROMPT
+        if self.active_file_context:
+            system_prompt += f"\n\n[DİKKAT] Kullanıcının şu an odaklandığı/seçtiği dosya ({self.active_file_context['filepath']}) içeriği:\n{self.active_file_context['content']}\n"
+
+        coder_msgs = [{"role": "system", "content": system_prompt}] + self.messages
+        max_steps = 15
 
         for step in range(max_steps):
             self._log(f"\n[Adım {step + 1}] Model düşünüyor...")
 
-            content, tool_calls = chat_with_tools(
-                model_name=self.model,
-                messages=coder_msgs,
-                tools=TOOLS_DEF,
-                log_callback=self._log
-            )
+            if "GitHub" in self.provider:
+                content, tool_calls = chat_github_models(
+                    model_name=self.model,
+                    messages=coder_msgs,
+                    tools=TOOLS_DEF,
+                    token=self.token,
+                    log_callback=self._log
+                )
+            else:
+                from ollama_client import chat_with_tools
+                content, tool_calls = chat_with_tools(
+                    model_name=self.model,
+                    messages=coder_msgs,
+                    tools=TOOLS_DEF,
+                    log_callback=self._log
+                )
 
-            # Modelden gelen metni sohbet penceresine yaz
             if content and content.strip():
-                self._chat(content + "\n")
+                parse_think_tags(content + "\n", self._chat)
 
-            # Mesaj geçmişine ekle
             assistant_msg = {"role": "assistant", "content": content or ""}
             if tool_calls:
-                assistant_msg["tool_calls"] = tool_calls
+                # GitHub modelleri JSON formatında dict döndürür, OpenAI standardına uyumlu hale getir
+                # Ollama ise objeler kullanır. Burada mesaja format uyumlu eklemek zorundayız.
+                if "GitHub" in self.provider:
+                    assistant_msg["tool_calls"] = tool_calls
+                else:
+                    assistant_msg["tool_calls"] = tool_calls
+
             coder_msgs.append(assistant_msg)
             self.messages.append(assistant_msg)
 
-            # Araç çağrısı yoksa görev bitti
             if not tool_calls:
-                self._log(f"\n[Adım {step + 1}] Araç çağrısı yok → Görev tamamlandı.")
+                self._log(f"\n[Adım {step + 1}] Görev tamamlandı.")
                 self._chat("\n✅ Görev tamamlandı.\n", tag="system")
                 break
 
-            # Araçları sırayla çalıştır
             self._log(f"[Adım {step + 1}] {len(tool_calls)} araç çalıştırılıyor...")
             for tc in tool_calls:
                 result = self._execute_tool(tc)
-                # Sonucu model geçmişine ekle
+                
+                tool_name = tc.get('function', {}).get('name') if isinstance(tc, dict) else tc.function.name
+                
                 tool_result_msg = {
                     "role": "tool",
                     "content": result,
-                    "name": tc.function.name
+                    "name": tool_name
                 }
+                # Ollama tool responses need special role matching, usually 'tool' is fine for both.
                 coder_msgs.append(tool_result_msg)
                 self.messages.append(tool_result_msg)
 
