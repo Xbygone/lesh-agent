@@ -5,7 +5,7 @@ import zipfile
 import requests
 import threading
 
-CURRENT_VERSION = "1.1.0"
+CURRENT_VERSION = "1.1.1"
 REPO_OWNER = "Xbygone"
 REPO_NAME = "lesh-agent"
 GITHUB_API_URL = f"https://api.github.com/repos/{REPO_OWNER}/{REPO_NAME}/releases/latest"
@@ -18,34 +18,32 @@ def check_for_updates(status_callback=None, complete_callback=None):
     def _run():
         try:
             if status_callback:
-                status_callback("Sürüm kontrol ediliyor...")
+                status_callback("Checking for updates...")
                 
             resp = requests.get(GITHUB_API_URL, timeout=10)
             if resp.status_code == 404:
-                if status_callback: status_callback("Sisteminiz güncel! (Henüz sürüm yayımlanmamış)")
+                if status_callback: status_callback("System is up to date!")
                 if complete_callback: complete_callback(False)
                 return
             elif resp.status_code != 200:
-                if status_callback: status_callback("Sürüm kontrolü başarısız.")
+                if status_callback: status_callback("Update check failed.")
                 if complete_callback: complete_callback(False)
                 return
 
             data = resp.json()
             latest_version = data.get("tag_name", "").lstrip("v")
             
-            # Basit versiyon karşılaştırma (örn. 1.0.0 vs 1.0.1)
             def parse_v(v):
                 return [int(x) for x in v.split(".") if x.isdigit()]
             
             if parse_v(latest_version) <= parse_v(CURRENT_VERSION):
-                if status_callback: status_callback("Sisteminiz güncel!")
+                if status_callback: status_callback("System is up to date!")
                 if complete_callback: complete_callback(False)
                 return
 
             if status_callback:
-                status_callback(f"Yeni sürüm ({latest_version}) bulundu! İndiriliyor...")
+                status_callback(f"New version ({latest_version}) found! Downloading...")
 
-            # .zip uzantılı asset'i bul
             assets = data.get("assets", [])
             download_url = None
             for asset in assets:
@@ -54,11 +52,10 @@ def check_for_updates(status_callback=None, complete_callback=None):
                     break
 
             if not download_url:
-                if status_callback: status_callback("Zip arşivi bulunamadı!")
+                if status_callback: status_callback("Zip archive not found!")
                 if complete_callback: complete_callback(False)
                 return
 
-            # Zip'i indir
             zip_path = "lesh-agent.zip"
             with requests.get(download_url, stream=True) as r:
                 r.raise_for_status()
@@ -67,57 +64,49 @@ def check_for_updates(status_callback=None, complete_callback=None):
                         f.write(chunk)
 
             if status_callback:
-                status_callback("İndirme bitti. Ayıklanıyor...")
+                status_callback("Download complete. Extracting...")
 
-            # _temp_update_ klasörünü hazırla
             temp_dir = "_temp_update_"
             if not os.path.exists(temp_dir):
                 os.makedirs(temp_dir)
 
-            # Zip'i ayıkla
             with zipfile.ZipFile(zip_path, 'r') as zip_ref:
                 zip_ref.extractall(temp_dir)
 
             if status_callback:
-                status_callback("Ayıklama tamamlandı. Güncelleme hazırlanıyor...")
+                status_callback("Extraction complete. Preparing update...")
 
-            # Eğer zip dosyasının içinde bir klasör daha varsa (örn: lesh-agent/lesh-agent.exe), kopyalama yolunu ona göre ayarla
             extracted_items = os.listdir(temp_dir)
             source_dir = temp_dir
             if len(extracted_items) == 1 and os.path.isdir(os.path.join(temp_dir, extracted_items[0])):
                 source_dir = os.path.join(temp_dir, extracted_items[0])
 
-            # update.bat oluştur
             bat_path = "update.bat"
             bat_content = f"""@echo off
-echo Guncelleme uygulaniyor, lutfen bekleyin...
+echo Applying update, please wait...
 timeout /t 2 /nobreak >nul
 
-:: Yeni dosyalari ana dizine kopyala
 xcopy /s /e /y /q "{source_dir}\\*" "."
 
-:: Gecici klasoru ve zip dosyasini sil
 rmdir /s /q "{temp_dir}"
 del /q "{zip_path}"
 
-:: Uygulamayi yeniden baslat
 start lesh-agent.exe
 
-:: Bat dosyasinin kendini silmesi
 (goto) 2>nul & del "%~f0"
 """
             with open(bat_path, "w") as f:
                 f.write(bat_content)
 
             if status_callback:
-                status_callback("Güncelleme hazır! Yeniden başlatılıyor...")
+                status_callback("Update ready! Restarting...")
                 
             if complete_callback:
                 complete_callback(True)
 
         except Exception as e:
             if status_callback:
-                status_callback(f"Güncelleme Hatası: {e}")
+                status_callback(f"Update Error: {e}")
             if complete_callback:
                 complete_callback(False)
 

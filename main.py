@@ -7,11 +7,11 @@ def install_requirements():
     if not os.path.exists(req_file):
         return
     
-    print("[SİSTEM] Eksik paketler kontrol ediliyor...")
+    print("[SYSTEM] Checking required packages...")
     try:
         subprocess.check_call([sys.executable, "-m", "pip", "install", "-r", req_file, "--disable-pip-version-check"])
     except Exception as e:
-        print(f"[HATA] Paketler yüklenemedi: {e}")
+        print(f"[ERROR] Failed to install packages: {e}")
 
 install_requirements()
 
@@ -22,8 +22,7 @@ import datetime
 from tkinter import filedialog
 
 from ui import AppUI
-from i18n import t
-from ollama_client import check_ollama_status, get_models, ensure_model_exists
+from ollama_client import check_ollama_status, ensure_model_exists
 from agent_engine import AgentState
 from git_manager import get_diff, commit_and_push
 from tools import read_file
@@ -83,21 +82,21 @@ class MainApp:
         self.run_updater()
 
     def run_updater(self):
-        self.ui.btn_update.configure(state="disabled", text=t("sys_checking_updates"))
+        self.ui.btn_update.configure(state="disabled", text="Checking updates...")
         def status_cb(msg):
             self.ui.after(0, lambda: self.ui.btn_update.configure(text=msg))
-            self._log(f"[GÜNCELLEYİCİ] {msg}")
+            self._log(f"[UPDATER] {msg}")
             
         def complete_cb(success):
             if success:
-                self.ui.after(0, lambda: self.ui.btn_update.configure(text=t("sys_restarting"), text_color="#6DD58C"))
+                self.ui.after(0, lambda: self.ui.btn_update.configure(text="Restarting...", text_color="#81C995"))
                 try:
                     subprocess.Popen("start update.bat", shell=True)
                     os._exit(0)
                 except:
                     pass
             else:
-                self.ui.after(3000, lambda: self.ui.btn_update.configure(state="normal", text=t("btn_update")))
+                self.ui.after(3000, lambda: self.ui.btn_update.configure(state="normal", text="Check for Updates"))
 
         check_for_updates(status_cb, complete_cb)
 
@@ -121,18 +120,18 @@ class MainApp:
     # OLLAMA INIT & UI EVENTS
     # ─────────────────────────────────────────────
     def _check_ollama(self):
-        self._set_status(t("ollama_checking"), "#EAB308")
+        self._set_status("Checking Ollama...", "#FDE293")
         if not check_ollama_status():
-            self._set_status(t("ollama_not_found"), "#EF4444")
+            self._set_status("Ollama Not Found", "#F28B82")
             return
 
-        self._set_status(t("models_checking"), "#EAB308")
+        self._set_status("Checking Models...", "#FDE293")
 
         def progress(msg):
-            self._set_status(t("ollama_not_found"), "#EF4444")
-            return
-        ensure_model_exists("qwen2.5-coder:7b", lambda msg: self._set_status(f"● {msg}", "#EAB308"))
-        self._set_status(t("ollama_active"), "#6DD58C")
+            self._set_status(f"● {msg}", "#FDE293")
+            
+        ensure_model_exists("qwen2.5-coder:7b", progress)
+        self._set_status("⚡ Ready", "#81C995")
 
     def _set_status(self, text, color):
         self.ui.after(0, lambda: self.ui.lbl_status.configure(text=text, text_color=color))
@@ -236,7 +235,7 @@ class MainApp:
         if self.agent:
             self.agent.messages = []
         self.ui.clear_chat()
-        self.ui.append_chat(f"\n[SYSTEM] {t('new_chat')} started.\n\n", tag="system")
+        self.ui.append_chat(f"\n[SYSTEM] New chat started.\n\n", tag="system")
 
     def _populate_chats(self):
         for item in self.ui.chat_list.get_children():
@@ -247,14 +246,13 @@ class MainApp:
             return
             
         root = self.ui.chat_list.insert("", "end", text="Chats", open=True)
-        self.ui.chat_list.insert(root, "end", text=t("new_chat"), tags=("new",))
+        self.ui.chat_list.insert(root, "end", text="New Chat", tags=("new",))
         
         try:
             files = sorted(os.listdir(sessions_dir), reverse=True)
             for f in files:
                 if f.endswith(".json"):
                     session_id = f.replace(".json", "")
-                    # Try to get the first prompt to show as title
                     title = session_id
                     try:
                         with open(os.path.join(sessions_dir, f), "r", encoding="utf-8") as jf:
@@ -302,16 +300,16 @@ class MainApp:
                     if self.agent:
                         self.agent.messages = history
                         self.ui.clear_chat()
-                        self.ui.append_chat(t("sys_history_loaded"), tag="system")
+                        self.ui.append_chat("History loaded.", tag="system")
                         for msg in history:
                             r = msg.get("role")
                             c = msg.get("content", "")
                             if r == "user":
-                                self.ui.append_chat(f"\n{t('sys_you')}\n{c}\n\n", tag="user")
+                                self.ui.append_chat(f"\n[You]\n{c}\n\n", tag="user")
                             elif r == "assistant" and c:
-                                self.ui.append_chat(f"\n[Ajan]\n{c}\n\n", tag="agent")
+                                self.ui.append_chat(f"\n[Agent]\n{c}\n\n", tag="agent")
                             elif r == "tool" and c:
-                                self.ui.append_chat(f"\n[Araç: {msg.get('name')}] Başarılı.\n", tag="tool_ok")
+                                self.ui.append_chat(f"\n[Tool: {msg.get('name')}] Success.\n", tag="tool_ok")
             except Exception as e:
                 self._log(f"Error loading session: {e}")
 
@@ -319,7 +317,7 @@ class MainApp:
     # WORKSPACE
     # ─────────────────────────────────────────────
     def select_folder(self):
-        path = filedialog.askdirectory(title="Çalışma Dizini Seçin")
+        path = filedialog.askdirectory(title="Select Workspace")
         if not path:
             return
         self.workspace_path = path
@@ -334,7 +332,7 @@ class MainApp:
         self._populate_chats()
         self.refresh_diff()
         self._make_agent()
-        self._log(f"Çalışma alanı: {path}")
+        self._log(f"Workspace: {path}")
         self.start_new_session()
 
     def _make_agent(self):
@@ -381,7 +379,7 @@ class MainApp:
 
     def send_message(self):
         if not self.workspace_path:
-            self.ui.append_chat(t("err_no_workspace"), tag="system")
+            self.ui.append_chat("Error: Select a workspace first.", tag="system")
             return
 
         text = self.ui.chat_input.get("1.0", "end").strip()
@@ -391,13 +389,13 @@ class MainApp:
         provider = self.ui.combo_provider.get()
         token = self.ui.entry_pat.get().strip()
         if "Yerel" not in provider and not token:
-            self.ui.append_chat(t("err_no_token", provider=provider), tag="system")
+            self.ui.append_chat(f"Error: {provider} requires an API Key/Token.", tag="system")
             return
             
         self.on_token_change(None)
 
         self.ui.chat_input.delete("1.0", "end")
-        self.ui.append_chat(f"\n{t('sys_you')}\n{text}\n\n", tag="user")
+        self.ui.append_chat(f"\n[You]\n{text}\n\n", tag="user")
 
         model_str = self.ui.combo_model.get().split(" ")[0]
         if self.agent:
@@ -423,12 +421,12 @@ class MainApp:
                     with open(os.path.join(s_dir, f"{self.current_session_id}.json"), "w", encoding="utf-8") as f:
                         json.dump(self.agent.messages, f, ensure_ascii=False, indent=2)
             except Exception as e:
-                self._log(f"[UYARI] Session save err: {e}")
+                self._log(f"[WARNING] Session save err: {e}")
                 
             self.ui.after(0, self.refresh_diff)
             self.ui.after(0, lambda: self._populate_tree(self.workspace_path))
             self.ui.after(0, self._populate_chats)
-            self.ui.after(0, lambda: self.ui.btn_send.configure(state="normal", text=t("chat_send")))
+            self.ui.after(0, lambda: self.ui.btn_send.configure(state="normal", text="Send 🚀"))
 
         threading.Thread(target=_run, daemon=True).start()
 
@@ -464,25 +462,25 @@ class MainApp:
     def refresh_diff(self):
         if not self.workspace_path:
             return
-        diff = get_diff(self.workspace_path) or t("no_changes")
+        diff = get_diff(self.workspace_path) or "No changes detected."
         self.ui.after(0, lambda: self.ui.set_diff(diff))
 
     def push_to_git(self):
         if not self.workspace_path:
             return
-        msg = self.ui.commit_msg_input.get().strip() or "AI: Otonom değişiklikler"
+        msg = self.ui.commit_msg_input.get().strip() or "AI: Autonomous commit"
         token = self.ui.entry_pat.get().strip()
         
-        self.ui.btn_git_push.configure(state="disabled", text=t("pushing"))
+        self.ui.btn_git_push.configure(state="disabled", text="Pushing...")
         self._log(f"$ git add . && git commit -m '{msg}' && git push")
 
         def _run():
             success, log = commit_and_push(self.workspace_path, msg, pat_token=token)
             self.ui.after(0, lambda: self.ui.append_log(log))
             self.ui.after(0, self.refresh_diff)
-            label = t("btn_push") if success else t("status_err")
+            label = "Commit & Push" if success else "Error!"
             self.ui.after(0, lambda: self.ui.btn_git_push.configure(state="normal", text=label))
-            self.ui.after(3500, lambda: self.ui.btn_git_push.configure(text=t("btn_push")))
+            self.ui.after(3500, lambda: self.ui.btn_git_push.configure(text="Commit & Push"))
             if success:
                 self.ui.after(0, lambda: self.ui.commit_msg_input.delete(0, "end"))
 
