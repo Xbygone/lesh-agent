@@ -131,7 +131,16 @@ class AppUI(ctk.CTk):
             self.sidebar, text="● Hazır",
             text_color=WARN_COLOR, font=(FONT_FAMILY, 12)
         )
-        self.lbl_status.grid(row=6, column=0, padx=20, pady=(0, 20), sticky="w")
+        self.lbl_status.grid(row=6, column=0, padx=20, pady=(0, 10), sticky="w")
+        
+        # Update Button
+        self.btn_update = ctk.CTkButton(
+            self.sidebar, text="🔄 Güncellemeleri Kontrol Et",
+            fg_color="transparent", hover_color=SURFACE_HOVER,
+            border_width=1, border_color=BORDER_COLOR,
+            text_color=TEXT_PRIMARY, font=(FONT_FAMILY, 12)
+        )
+        self.btn_update.grid(row=7, column=0, padx=20, pady=(0, 20), sticky="ew")
 
     # ─────────────────────────────────────────────
     # CENTER CHAT PANEL

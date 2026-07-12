@@ -1,15 +1,33 @@
 import os
+import sys
+import subprocess
+
+def install_requirements():
+    req_file = "requirements.txt"
+    if not os.path.exists(req_file):
+        return
+    
+    print("[SİSTEM] Eksik paketler kontrol ediliyor...")
+    try:
+        # pip install -r requirements.txt ignores already installed packages.
+        subprocess.check_call([sys.executable, "-m", "pip", "install", "-r", req_file, "--disable-pip-version-check"])
+    except Exception as e:
+        print(f"[HATA] Paketler yüklenemedi: {e}")
+
+# İlk olarak paketleri kontrol edip yükleyelim
+install_requirements()
+
 import threading
 import time
 import json
 from tkinter import filedialog
-import subprocess
 
 from ui import AppUI
 from ollama_client import check_ollama_status, get_models, ensure_model_exists
 from agent_engine import AgentState
 from git_manager import get_diff, commit_and_push
 from tools import read_file
+from updater import check_for_updates
 
 CONFIG_FILE = os.path.expanduser("~/.yerel_agent_config.json")
 
@@ -45,6 +63,7 @@ class MainApp:
         self.ui.btn_send.configure(command=self.send_message)
         self.ui.btn_refresh_diff.configure(command=self.refresh_diff)
         self.ui.btn_git_push.configure(command=self.push_to_git)
+        self.ui.btn_update.configure(command=self.run_updater)
         
         # Wire up Combobox
         self.ui.combo_provider.configure(command=self.on_provider_change)
@@ -65,6 +84,25 @@ class MainApp:
         
         # Load config
         self._load_initial_config()
+
+    def run_updater(self):
+        self.ui.btn_update.configure(state="disabled", text="Kontrol ediliyor...")
+        def status_cb(msg):
+            self.ui.after(0, lambda: self.ui.btn_update.configure(text=msg))
+            self._log(f"[GÜNCELLEYİCİ] {msg}")
+            
+        def complete_cb(success):
+            if success:
+                self.ui.after(0, lambda: self.ui.btn_update.configure(text="Yeniden başlatılıyor...", text_color="#6DD58C"))
+                try:
+                    subprocess.Popen("start update.bat", shell=True)
+                    os._exit(0)
+                except:
+                    pass
+            else:
+                self.ui.after(3000, lambda: self.ui.btn_update.configure(state="normal", text="🔄 Güncellemeleri Kontrol Et"))
+
+        check_for_updates(status_cb, complete_cb)
 
     def _load_initial_config(self):
         config = load_config()
