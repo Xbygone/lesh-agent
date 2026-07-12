@@ -21,7 +21,7 @@ def update_version_in_updater(new_version):
 def run_build():
     print("[+] PyInstaller çalıştırılıyor...")
     subprocess.run([
-        "pyinstaller",
+        "python", "-m", "PyInstaller",
         "--noconfirm",
         "--onedir",
         "--windowed",
