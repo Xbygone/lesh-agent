@@ -21,7 +21,11 @@ def check_for_updates(status_callback=None, complete_callback=None):
                 status_callback("Sürüm kontrol ediliyor...")
                 
             resp = requests.get(GITHUB_API_URL, timeout=10)
-            if resp.status_code != 200:
+            if resp.status_code == 404:
+                if status_callback: status_callback("Sisteminiz güncel! (Henüz sürüm yayımlanmamış)")
+                if complete_callback: complete_callback(False)
+                return
+            elif resp.status_code != 200:
                 if status_callback: status_callback("Sürüm kontrolü başarısız.")
                 if complete_callback: complete_callback(False)
                 return
