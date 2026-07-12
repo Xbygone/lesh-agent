@@ -1,3 +1,5 @@
 customtkinter
 ollama
 requests
+openai
+google-generativeai

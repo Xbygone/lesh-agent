@@ -67,9 +67,11 @@ class MainApp:
 
     def on_provider_change(self, choice):
         if "Yerel" in choice:
+            self.ui.lbl_token.configure(text="API Key (Yerel için opsiyonel)")
             self.ui.combo_model.configure(values=["qwen2.5-coder:7b", "qwen3.5:4b"])
             self.ui.combo_model.set("qwen2.5-coder:7b")
-        else:
+        elif "GitHub Models" in choice:
+            self.ui.lbl_token.configure(text="GitHub PAT Token")
             gh_models = [
                 "deepseek-r1-0528 (Reasoning)", "llama-4-scout-17b-16e (Reasoning)", "o4-mini (Reasoning)",
                 "codestral-25.01 (Coding)", "gpt-4.1-mini (Coding)", "gpt-4.1 (Coding)",
@@ -77,6 +79,16 @@ class MainApp:
             ]
             self.ui.combo_model.configure(values=gh_models)
             self.ui.combo_model.set("gpt-4.1-mini (Coding)")
+        elif "Google AI Studio" in choice:
+            self.ui.lbl_token.configure(text="Google API Key")
+            gg_models = ['gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-1.5-pro']
+            self.ui.combo_model.configure(values=gg_models)
+            self.ui.combo_model.set("gemini-2.0-flash")
+        elif "Groq Cloud" in choice:
+            self.ui.lbl_token.configure(text="Groq API Key")
+            groq_models = ['qwen-2.5-coder-32b', 'llama-3.3-70b']
+            self.ui.combo_model.configure(values=groq_models)
+            self.ui.combo_model.set("qwen-2.5-coder-32b")
 
     def on_tree_select(self, event):
         if not self.agent or not self.workspace_path:
@@ -178,11 +190,10 @@ class MainApp:
         if not text:
             return
 
-        # Check token if GitHub Models is selected
         provider = self.ui.combo_provider.get()
         token = self.ui.entry_pat.get().strip()
-        if "GitHub" in provider and not token:
-            self.ui.append_chat("\n[HATA] GitHub Models kullanmak için sol panele PAT Token girmelisiniz!\n", tag="system")
+        if "Yerel" not in provider and not token:
+            self.ui.append_chat(f"\n[HATA] {provider} kullanmak için sol panele API Key / Token girmelisiniz!\n", tag="system")
             return
 
         self.ui.chat_input.delete("1.0", "end")

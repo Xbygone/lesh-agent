@@ -58,13 +58,19 @@ class AppUI(ctk.CTk):
             font=(FONT_FAMILY, 20, "bold"), text_color=PRIMARY_COLOR
         ).grid(row=0, column=0, sticky="w", padx=20, pady=(28, 16))
         
-        # PAT Input
+        # PAT/API Key Input
+        self.lbl_token = ctk.CTkLabel(
+            self.sidebar, text="API Key / Token",
+            font=(FONT_FAMILY, 12, "bold"), text_color=TEXT_SECONDARY
+        )
+        self.lbl_token.grid(row=1, column=0, sticky="w", padx=20, pady=(0, 4))
+        
         self.entry_pat = ctk.CTkEntry(
-            self.sidebar, placeholder_text="GitHub PAT Token", show="*",
+            self.sidebar, placeholder_text="Token girin...", show="*",
             fg_color=BG_COLOR, border_color=BORDER_COLOR, height=36,
             font=(FONT_FAMILY, 12)
         )
-        self.entry_pat.grid(row=1, column=0, padx=16, pady=(0, 16), sticky="ew")
+        self.entry_pat.grid(row=2, column=0, padx=16, pady=(0, 16), sticky="ew")
 
         # Workspace button
         self.btn_select_folder = ctk.CTkButton(
@@ -74,7 +80,7 @@ class AppUI(ctk.CTk):
             text_color=TEXT_PRIMARY, font=(FONT_FAMILY, 13, "bold"),
             corner_radius=20, height=44
         )
-        self.btn_select_folder.grid(row=2, column=0, padx=16, pady=(0, 16), sticky="ew")
+        self.btn_select_folder.grid(row=3, column=0, padx=16, pady=(0, 16), sticky="ew")
 
         # File tree
         tree_frame = ctk.CTkFrame(self.sidebar, fg_color="transparent")
@@ -100,7 +106,7 @@ class AppUI(ctk.CTk):
         ).pack(anchor="w", padx=14, pady=(14, 4))
 
         self.combo_provider = ctk.CTkComboBox(
-            model_card, values=["Yerel (Ollama)", "GitHub Models (Bulut)"],
+            model_card, values=["Yerel (Ollama)", "GitHub Models (Bulut)", "Google AI Studio (Gemini)", "Groq Cloud"],
             fg_color=SURFACE_COLOR, border_color=BORDER_COLOR,
             button_color=SURFACE_COLOR, text_color=TEXT_PRIMARY,
             font=(FONT_FAMILY, 13)
