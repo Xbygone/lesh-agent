@@ -79,9 +79,6 @@ class AppUI(ctk.CTk):
         self.combo_coder = ctk.CTkComboBox(model_card, values=["qwen2.5-coder:7b"], fg_color=SURFACE_COLOR, border_color=BORDER_COLOR, button_color=SURFACE_COLOR)
         self.combo_coder.pack(fill="x", padx=16, pady=(0, 16))
         
-        self.btn_pull_model = ctk.CTkButton(model_card, text="Model İndir", fg_color="transparent", text_color=PRIMARY_COLOR, hover_color=SURFACE_HOVER)
-        self.btn_pull_model.pack(fill="x", padx=16, pady=(0, 16))
-        
         self.lbl_ollama_status = ctk.CTkLabel(self.sidebar, text="● Ollama Bağlantısı Aranıyor...", text_color="#EAB308", font=(FONT_FAMILY, 12))
         self.lbl_ollama_status.grid(row=4, column=0, padx=24, pady=(0, 24), sticky="w")
 
