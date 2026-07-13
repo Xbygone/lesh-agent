@@ -370,17 +370,18 @@ class MainApp:
         self.start_new_session()
 
     def _make_agent(self):
-        model_str = self.ui.combo_model.get()
-        actual_model = model_str.split(" ")[0]
-        
+        provider = self.ui.combo_provider.get()
+        model_str = self.ui.combo_model.get().split(" ")[0]
+        token = self.ui.entry_pat.get().strip()
         self.agent = AgentState(
-            provider=self.ui.combo_provider.get(),
-            model=actual_model,
+            provider=provider,
+            model=model_str,
             workspace_path=self.workspace_path,
-            token=self.ui.entry_pat.get().strip(),
-            chat_callback=self._chat_cb,
-            log_callback=self._log_cb
+            token=token,
+            chat_callback=self._chat_callback,
+            log_callback=self._log_callback
         )
+        self.agent.run_mode = self.ui.mode_selector.get()
 
     # ─────────────────────────────────────────────
     # FILE TREE
