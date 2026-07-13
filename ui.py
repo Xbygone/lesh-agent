@@ -190,7 +190,7 @@ class AppUI(ctk.CTk):
         self.chat_display.tag_config("user", foreground=PRIMARY_COLOR)
         self.chat_display.tag_config("tool_ok", foreground=SUCCESS_COLOR)
         self.chat_display.tag_config("think", foreground=THINK_COLOR)
-        self.chat_display.tag_config("pilot", foreground="#888888", font=("Consolas", 12, "italic"))
+        self.chat_display.tag_config("pilot", foreground="#888888")
 
         # Input bar (Rounded, professional)
         bar = ctk.CTkFrame(
