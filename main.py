@@ -63,7 +63,8 @@ class MainApp:
         self.ui.btn_git_push.configure(command=self.push_to_git)
         self.ui.btn_update.configure(command=self.run_updater)
         
-        # Wire up Combobox
+        # Wire up Combobox and Mode Selector
+        self.ui.mode_selector.configure(command=self.on_mode_change)
         self.ui.combo_provider.configure(command=self.on_provider_change)
         self.ui.combo_model.configure(command=self.on_model_change)
         
@@ -80,7 +81,7 @@ class MainApp:
         self.run_updater()
 
     def _on_auth_success(self, event=None):
-        self.on_provider_change(self.ui.combo_provider.get())
+        self.on_mode_change(self.ui.mode_selector.get())
 
     def run_updater(self):
         self.ui.btn_update.configure(state="disabled", text="Checking updates...")
@@ -105,6 +106,9 @@ class MainApp:
         config = {} # Config fetching was removed because it's now in Supabase
         self.workspace_path = config.get("last_workspace", None)
         if self.workspace_path and os.path.exists(self.workspace_path):
+            self.ui.workspace_path_text = os.path.basename(self.workspace_path)
+            self.ui.btn_select_folder.configure(text=f"📁 {self.ui.workspace_path_text}")
+            self._populate_tree(self.workspace_path)
             self._populate_chats()
             self.refresh_diff()
             self._make_agent()
@@ -112,7 +116,31 @@ class MainApp:
             # Create a new session automatically
             self.start_new_session()
         
-        self.on_provider_change(self.ui.combo_provider.get())
+        self.on_mode_change(self.ui.mode_selector.get())
+
+    def on_mode_change(self, mode):
+        # Depending on mode, we might lock or hide provider/model combos
+        if mode == "Standart":
+            self.ui.combo_provider.configure(state="normal")
+            self.ui.combo_model.configure(state="normal")
+            self.on_provider_change(self.ui.combo_provider.get())
+        elif mode == "Oto-Pilot":
+            self.ui.combo_provider.set("GitHub Models") # Oto-Pilot needs a cloud fallback
+            self.ui.combo_provider.configure(state="disabled")
+            self.ui.combo_model.configure(values=["Dinamik Yönlendirme"])
+            self.ui.combo_model.set("Dinamik Yönlendirme")
+            self.ui.combo_model.configure(state="disabled")
+            self.on_provider_change("GitHub Models", mode_override=mode)
+        elif mode == "Yazılım Ofisi":
+            self.ui.combo_provider.set("GitHub Models")
+            self.ui.combo_provider.configure(state="disabled")
+            self.ui.combo_model.configure(values=["5-Agent Consensus"])
+            self.ui.combo_model.set("5-Agent Consensus")
+            self.ui.combo_model.configure(state="disabled")
+            self.on_provider_change("GitHub Models", mode_override=mode)
+            
+        if self.agent:
+            self.agent.run_mode = mode
 
     # ─────────────────────────────────────────────
     # OLLAMA INIT & UI EVENTS
@@ -150,7 +178,7 @@ class MainApp:
             self.agent.provider = self.ui.combo_provider.get()
             self._log(f"Model: {model_str}")
 
-    def on_provider_change(self, choice):
+    def on_provider_change(self, choice, mode_override=None):
         # Fetch key from Supabase DB
         from db_manager import db
         saved_token = db.get_api_key(choice) or ""
@@ -158,17 +186,14 @@ class MainApp:
         self.ui.entry_pat.delete(0, "end")
         self.ui.entry_pat.insert(0, saved_token)
 
-        if "Oto-Pilot" in choice:
-            self.ui.lbl_token.grid()
-            self.ui.entry_pat.grid()
-            self.ui.lbl_token.configure(text="GitHub PAT Token (Oto-Pilot)")
-            self.ui.combo_model.configure(values=["Dinamik Yönlendirme"])
-            self.ui.combo_model.set("Dinamik Yönlendirme")
-        elif "Yerel" in choice:
+        mode = mode_override or self.ui.mode_selector.get()
+
+        if "Yerel" in choice:
             self.ui.lbl_token.grid_remove()
             self.ui.entry_pat.grid_remove()
-            self.ui.combo_model.configure(values=["qwen2.5-coder:7b", "qwen3.5:4b", "deepseek-r1:8b"])
-            self.ui.combo_model.set("qwen2.5-coder:7b")
+            if mode == "Standart":
+                self.ui.combo_model.configure(values=['qwen2.5-coder:7b', 'qwen3.5:4b', 'phi-4-mini-instruct'])
+                self.ui.combo_model.set("qwen2.5-coder:7b")
         else:
             self.ui.lbl_token.grid()
             self.ui.entry_pat.grid()
@@ -176,22 +201,27 @@ class MainApp:
             if "GitHub" in choice:
                 self.ui.lbl_token.configure(text="GitHub PAT Token")
                 gh_models = [
-                    "deepseek-r1-0528 (Reasoning)", "llama-4-scout-17b-16e (Reasoning)", "o4-mini (Reasoning)",
-                    "codestral-25.01 (Coding)", "gpt-4.1-mini (Coding)", "gpt-4.1 (Coding)",
-                    "phi-4-mini-instruct (Routine)"
+                    'gpt-5', 'gpt-5-chat (preview)', 'gpt-5-mini', 'gpt-5-nano', 
+                    'o4-mini', 'o3-mini', 'o1', 'gpt-4.1', 'gpt-4.1-mini', 'gpt-4.1-nano', 'gpt-4o-mini',
+                    'llama-4-scout-17b-16e', 'llama-4-maverick-17b-128e', 'llama-3.1-405b',
+                    'deepseek-r1-0528', 'deepseek-r1', 'deepseek-v3-0324',
+                    'codestral-25.01', 'mistral-medium-3 (25.05)', 'cohere-command-a', 'phi-4-reasoning'
                 ]
-                self.ui.combo_model.configure(values=gh_models)
-                self.ui.combo_model.set("gpt-4.1-mini (Coding)")
+                if mode == "Standart":
+                    self.ui.combo_model.configure(values=gh_models)
+                    self.ui.combo_model.set("gpt-4.1-mini")
             elif "Google" in choice:
                 self.ui.lbl_token.configure(text="Google API Key")
-                gg_models = ['gemini-2.0-flash', 'gemini-1.5-pro', 'gemini-1.5-flash']
-                self.ui.combo_model.configure(values=gg_models)
-                self.ui.combo_model.set("gemini-2.0-flash")
+                gg_models = ['gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-1.5-pro']
+                if mode == "Standart":
+                    self.ui.combo_model.configure(values=gg_models)
+                    self.ui.combo_model.set("gemini-2.0-flash")
             elif "Groq" in choice:
                 self.ui.lbl_token.configure(text="Groq API Key")
-                groq_models = ['deepseek-r1-distill-llama-70b', 'llama-3.3-70b-versatile', 'qwen-2.5-coder-32b']
-                self.ui.combo_model.configure(values=groq_models)
-                self.ui.combo_model.set("deepseek-r1-distill-llama-70b")
+                groq_models = ['qwen-2.5-coder-32b', 'llama-3.3-70b', 'mistral-small-3.1']
+                if mode == "Standart":
+                    self.ui.combo_model.configure(values=groq_models)
+                    self.ui.combo_model.set("llama-3.3-70b")
         
         self.on_model_change(self.ui.combo_model.get())
 

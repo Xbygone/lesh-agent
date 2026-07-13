@@ -26,18 +26,42 @@ def get_models():
         return []
 
 
-def ensure_model_exists(model_name, progress_callback=None):
+def ensure_model_exists(model_name, progress_callback=None, chat_callback=None):
     """Model yoksa indirir."""
     models = get_models()
     if model_name not in models:
         try:
+            cmd = f"ollama pull {model_name}"
+            if chat_callback:
+                chat_callback(f"\n[SİSTEM] Yerel model bulunamadı. Terminal komutu çalıştırılıyor: `$ {cmd}`\n", tag="system")
             if progress_callback:
                 progress_callback(f"İndiriliyor: {model_name}...")
-            client.pull(model_name)
+                
+            import subprocess
+            process = subprocess.Popen(
+                cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1
+            )
+            
+            for line in process.stdout:
+                line = line.strip()
+                if line:
+                    if progress_callback:
+                        progress_callback(f"İndiriliyor: {line[:50]}...")
+                    if chat_callback:
+                        chat_callback(f"{line}\n", tag="system")
+                        
+            process.wait()
+            if process.returncode != 0:
+                raise Exception(f"ollama pull başarısız oldu. Return code: {process.returncode}")
+                
+            if chat_callback:
+                chat_callback(f"✅ {model_name} başarıyla indirildi!\n", tag="system")
             return True
         except Exception as e:
             if progress_callback:
                 progress_callback(f"İndirme Hatası: {str(e)}")
+            if chat_callback:
+                chat_callback(f"❌ İndirme Hatası: {str(e)}\n", tag="system")
             return False
     return True
 

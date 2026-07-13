@@ -289,11 +289,13 @@ class AgentState:
 
     def run(self):
         self._log("═══════════════════════════════")
-        self._log(f"Ajan başlatıldı | Model: {self.model} ({self.provider})")
+        self._log(f"Ajan başlatıldı | Mod: {getattr(self, 'run_mode', 'Standart')} | Model: {self.model} ({self.provider})")
         self._log("═══════════════════════════════")
 
-        # --- AUTO-PILOT LOGIC ---
-        if "Oto-Pilot" in self.provider:
+        from ollama_client import ensure_model_exists
+
+        # --- OTO-PILOT LOGIC ---
+        if getattr(self, "run_mode", "Standart") == "Oto-Pilot":
             self._chat("\n🤖 Oto-Pilot devreye girdi...\n", tag="pilot")
             self._chat("🔍 İstek zorluğu analiz ediliyor...\n", tag="pilot")
             
@@ -307,10 +309,11 @@ class AgentState:
             analyzer_prompt = f"Aşağıdaki kodlama/yardım isteğini analiz et. Sadece bir metin değişikliği, küçük fonksiyon düzeltmesi veya basit bir soru ise 'KOLAY' yaz. Kapsamlı bir mimari değişiklik, karmaşık mantık oluşturma veya zor bir kodlama problemi ise 'ZOR' yaz. Sadece KOLAY veya ZOR cevabı ver.\n\nİstek: {last_msg}"
             
             try:
+                ensure_model_exists("phi-4-mini-instruct", chat_callback=self._chat)
                 from ollama_client import chat_with_tools
                 analyzer_msgs = [{"role": "user", "content": analyzer_prompt}]
-                self._log("[Oto-Pilot] qwen3.5:4b ile analiz ediliyor...")
-                analysis_res, _ = chat_with_tools("qwen3.5:4b", analyzer_msgs, [], lambda x: None)
+                self._log("[Oto-Pilot] phi-4-mini-instruct ile analiz ediliyor...")
+                analysis_res, _ = chat_with_tools("phi-4-mini-instruct", analyzer_msgs, [], lambda x: None)
                 analysis_res = analysis_res.strip().upper() if analysis_res else "ZOR"
             except Exception as e:
                 self._log(f"[Oto-Pilot] Analiz hatası: {e}. Varsayılan ZOR seçildi.")
@@ -321,9 +324,50 @@ class AgentState:
                 self.provider = "Yerel (Ollama)"
                 self.model = "qwen2.5-coder:7b"
             else:
-                self._chat("🧠 Analiz Sonucu: Karmaşık kod/mantık mimarisi algılandı. Maksimum doğruluk için Bulut DeepSeek-R1 / Claude 3.5 Sonnet modeline geçiş yapılıyor.\n", tag="pilot")
+                self._chat("🧠 Analiz Sonucu: Karmaşık kod/mantık mimarisi algılandı. Maksimum doğruluk için Bulut DeepSeek-R1 modeline geçiş yapılıyor.\n", tag="pilot")
                 self.provider = "GitHub Models"
-                self.model = "deepseek-r1-0528 (Reasoning)"
+                self.model = "deepseek-r1-0528"
+
+        # --- YAZILIM OFİSİ LOGIC ---
+        elif getattr(self, "run_mode", "Standart") == "Yazılım Ofisi":
+            self._chat("\n🏢 Yazılım Ofisi: 5 Uzman Ajan konsensüs için toplandı...\n", tag="pilot")
+            
+            user_request = ""
+            for msg in reversed(self.messages):
+                if msg.get("role") == "user":
+                    user_request = msg.get("content", "")
+                    break
+
+            base_url = "https://models.inference.ai.azure.com"
+
+            # 1. Yazılım Mimarı (gpt-4.1)
+            self._chat("🔍 [Yazılım Mimarı (GPT-4.1)] İlk taslak hazırlanıyor...\n", tag="pilot")
+            mimar_prompt = [{"role": "system", "content": "Sen usta bir Yazılım Mimarısın. Sadece kodun genel mantığını ve iskeletini oluştur. Sadece markdown döndür."}, {"role": "user", "content": user_request}]
+            mimar_res, _ = chat_cloud_streaming("gpt-4.1", mimar_prompt, [], self.token, base_url, lambda x, tag=None: None, self._log)
+            
+            # 2. Hata Avcısı (o4-mini)
+            self._chat("🕵️‍♂️ [Hata Avcısı (o4-mini)] Risk analizleri ve edge-case testleri yapılıyor...\n", tag="pilot")
+            qa_prompt = [{"role": "system", "content": "Sen acımasız bir QA tester'sın. Verilen kodu incele ve bugları, açık kapıları bul. Revize planını yaz."}, {"role": "user", "content": mimar_res}]
+            qa_res, _ = chat_cloud_streaming("o4-mini", qa_prompt, [], self.token, base_url, lambda x, tag=None: None, self._log)
+
+            # 3. Performans Uzmanı (codestral-25.01)
+            self._chat("⚡ [Performans Uzmanı (codestral-25.01)] Kod optimize ediliyor...\n", tag="pilot")
+            perf_prompt = [{"role": "system", "content": "Sen performans uzmanısın. Mimarın ve QA'in yazdıklarını incele, kodu olabilecek en hafif ve donanım dostu hale getir."}, {"role": "user", "content": f"Mimari:\n{mimar_res}\n\nQA Bulğuları:\n{qa_res}"}]
+            perf_res, _ = chat_cloud_streaming("codestral-25.01", perf_prompt, [], self.token, base_url, lambda x, tag=None: None, self._log)
+
+            # 4. Git & Terminal Sorumlusu (phi-4-mini-instruct)
+            self._chat("💻 [Git & Terminal Sorumlusu (phi-4-mini-instruct)] Dosya ve komut adımları belirleniyor...\n", tag="pilot")
+            git_prompt = [{"role": "system", "content": "Hangi dosyaların değişeceğini ve hangi terminal komutlarının gerektiğini listele."}, {"role": "user", "content": f"Optimize edilmiş kod:\n{perf_res}"}]
+            git_res, _ = chat_cloud_streaming("phi-4-mini-instruct", git_prompt, [], self.token, base_url, lambda x, tag=None: None, self._log)
+
+            # 5. Baş Hakem (deepseek-r1-0528) - Sentezleyici
+            self._chat("⚖️ [Baş Hakem (deepseek-r1-0528)] Tüm tartışmalar sentezleniyor ve nihai kod yazılıyor...\n", tag="pilot")
+            sentez_prompt = [{"role": "system", "content": SYSTEM_PROMPT + "\n\nEkibinin ürettiği tüm tartışmaları birleştir ve kullanıcının isteğini KUSURSUZ olarak yerine getir. Tools'ları kullanarak dosyaları düzenle."}, {"role": "user", "content": f"Kullanıcı İsteği: {user_request}\n\nMimari:\n{mimar_res}\nQA:\n{qa_res}\nPerformans:\n{perf_res}\nGit:\n{git_res}"}]
+            
+            # The remaining process handles exactly like normal using the synthesizer inputs as context
+            self.provider = "GitHub Models"
+            self.model = "deepseek-r1-0528"
+            self.messages = sentez_prompt # Override context with the consensus
         # ------------------------
 
 
@@ -409,7 +453,8 @@ class AgentState:
                     base_url = "https://generativelanguage.googleapis.com/v1beta/openai/"
                     content, tool_calls = chat_cloud_streaming(self.model, coder_msgs, TOOLS_DEF, self.token, base_url, self._chat, self._log)
                 else:
-                    from ollama_client import chat_with_tools
+                    from ollama_client import chat_with_tools, ensure_model_exists
+                    ensure_model_exists(self.model, chat_callback=self._chat)
                     content, tool_calls = chat_with_tools(self.model, coder_msgs, TOOLS_DEF, self._log)
                     if content:
                         parser = StreamingThinkParser(self._chat)

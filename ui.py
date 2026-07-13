@@ -89,19 +89,28 @@ class AppUI(ctk.CTk):
         )
         self.header_label.grid(row=0, column=0, sticky="w")
         
+        # Mode Selector
+        self.mode_selector = ctk.CTkSegmentedButton(
+            self.sidebar, values=["Standart", "Oto-Pilot", "Yazılım Ofisi"],
+            fg_color=BG_COLOR, selected_color=PRIMARY_COLOR, selected_hover_color=PRIMARY_HOVER,
+            unselected_color=BG_COLOR, text_color=TEXT_PRIMARY, font=(FONT_FAMILY, 12, "bold")
+        )
+        self.mode_selector.grid(row=1, column=0, padx=16, pady=(0, 16), sticky="ew")
+        self.mode_selector.set("Standart")
+        
         # PAT/API Key Input
         self.lbl_token = ctk.CTkLabel(
             self.sidebar, text="API Key / PAT",
             font=(FONT_FAMILY, 12, "bold"), text_color=TEXT_SECONDARY
         )
-        self.lbl_token.grid(row=1, column=0, sticky="w", padx=20, pady=(0, 4))
+        self.lbl_token.grid(row=2, column=0, sticky="w", padx=20, pady=(0, 4))
         
         self.entry_pat = ctk.CTkEntry(
             self.sidebar, placeholder_text="Enter token...", show="*",
             fg_color=BG_COLOR, border_color=BORDER_COLOR, height=36,
             corner_radius=6, font=(FONT_FAMILY, 13)
         )
-        self.entry_pat.grid(row=2, column=0, padx=16, pady=(0, 16), sticky="ew")
+        self.entry_pat.grid(row=3, column=0, padx=16, pady=(0, 16), sticky="ew")
 
         # Workspace button (Subtle 3D look)
         self.btn_select_folder = ctk.CTkButton(
@@ -111,7 +120,7 @@ class AppUI(ctk.CTk):
             text_color=TEXT_PRIMARY, font=(FONT_FAMILY, 13, "bold"),
             corner_radius=6, height=40
         )
-        self.btn_select_folder.grid(row=3, column=0, padx=16, pady=(0, 16), sticky="ew")
+        self.btn_select_folder.grid(row=4, column=0, padx=16, pady=(0, 16), sticky="ew")
 
         # File tree & Chats (Tabs)
         self.tabs = ctk.CTkTabview(
@@ -121,7 +130,7 @@ class AppUI(ctk.CTk):
             segmented_button_unselected_color=BG_COLOR,
             text_color_disabled=TEXT_SECONDARY
         )
-        self.tabs.grid(row=4, column=0, padx=16, pady=0, sticky="nsew")
+        self.tabs.grid(row=5, column=0, padx=16, pady=0, sticky="nsew")
         
         self.tab_files = self.tabs.add("📂 Workspace")
         self.tab_chats = self.tabs.add("💬 Sessions")
@@ -137,7 +146,7 @@ class AppUI(ctk.CTk):
             self.sidebar, fg_color=BG_COLOR, corner_radius=8,
             border_width=1, border_color=BORDER_COLOR
         )
-        model_card.grid(row=5, column=0, padx=16, pady=16, sticky="ew")
+        model_card.grid(row=6, column=0, padx=16, pady=16, sticky="ew")
 
         self.lbl_provider = ctk.CTkLabel(
             model_card, text="Provider",
@@ -146,7 +155,7 @@ class AppUI(ctk.CTk):
         self.lbl_provider.pack(anchor="w", padx=16, pady=(12, 4))
 
         self.combo_provider = ctk.CTkComboBox(
-            model_card, values=["Oto-Pilot (Auto)", "Yerel (Ollama)", "GitHub Models", "Google AI Studio", "Groq Cloud"],
+            model_card, values=["Yerel (Ollama)", "GitHub Models", "Google AI Studio", "Groq Cloud"],
             fg_color=SURFACE_COLOR, border_color=BORDER_COLOR,
             button_color=SURFACE_COLOR, button_hover_color=SURFACE_HOVER,
             dropdown_fg_color=SURFACE_COLOR, dropdown_hover_color=SURFACE_HOVER,
