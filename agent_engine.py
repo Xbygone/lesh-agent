@@ -338,34 +338,42 @@ class AgentState:
                     user_request = msg.get("content", "")
                     break
 
-            base_url = "https://models.inference.ai.azure.com"
+            from db_manager import db
+            nvidia_key = db.get_api_key("NVIDIA Build") or ""
+            github_key = db.get_api_key("GitHub Models") or ""
+            google_key = db.get_api_key("Google AI Studio") or ""
 
-            # 1. Yazılım Mimarı (gpt-4.1)
-            self._chat("🔍 [Yazılım Mimarı (GPT-4.1)] İlk taslak hazırlanıyor...\n", tag="pilot")
+            if not (nvidia_key and github_key and google_key):
+                self._chat("\n⚠️ [HATA] Yazılım Ofisi modunun (Cross-Provider) çalışması için NVIDIA Build, GitHub Models ve Google AI Studio API anahtarlarının girilmiş olması gereklidir.\n", tag="system")
+                raise Exception("Missing required API keys for Yazılım Ofisi.")
+
+            # 1. Yazılım Mimarı (meta/llama-3.3-70b-instruct) -> NVIDIA NIM
+            self._chat("🟢 [NVIDIA NIM | Yazılım Mimarı] Kod iskeleti ve algoritma tasarlanıyor...\n", tag="pilot")
             mimar_prompt = [{"role": "system", "content": "Sen usta bir Yazılım Mimarısın. Sadece kodun genel mantığını ve iskeletini oluştur. Sadece markdown döndür."}, {"role": "user", "content": user_request}]
-            mimar_res, _ = chat_cloud_streaming("gpt-4.1", mimar_prompt, [], self.token, base_url, lambda x, tag=None: None, self._log)
+            mimar_res, _ = chat_cloud_streaming("meta/llama-3.3-70b-instruct", mimar_prompt, [], nvidia_key, "https://integrate.api.nvidia.com/v1", lambda x, tag=None: None, self._log)
             
-            # 2. Hata Avcısı (o4-mini)
-            self._chat("🕵️‍♂️ [Hata Avcısı (o4-mini)] Risk analizleri ve edge-case testleri yapılıyor...\n", tag="pilot")
+            # 2. Hata Avcısı (o4-mini) -> GitHub Models
+            self._chat("🐙 [GitHub Models | Hata Avcısı] o4-mini ile mantık hataları ve edge-caseler denetleniyor...\n", tag="pilot")
             qa_prompt = [{"role": "system", "content": "Sen acımasız bir QA tester'sın. Verilen kodu incele ve bugları, açık kapıları bul. Revize planını yaz."}, {"role": "user", "content": mimar_res}]
-            qa_res, _ = chat_cloud_streaming("o4-mini", qa_prompt, [], self.token, base_url, lambda x, tag=None: None, self._log)
+            qa_res, _ = chat_cloud_streaming("o4-mini", qa_prompt, [], github_key, "https://models.inference.ai.azure.com", lambda x, tag=None: None, self._log)
 
-            # 3. Performans Uzmanı (codestral-25.01)
-            self._chat("⚡ [Performans Uzmanı (codestral-25.01)] Kod optimize ediliyor...\n", tag="pilot")
+            # 3. Performans Uzmanı (mistralai/codestral-2501) -> NVIDIA NIM
+            self._chat("🟢 [NVIDIA NIM | Performans Uzmanı] mistralai/codestral-2501 ile kod optimize ediliyor...\n", tag="pilot")
             perf_prompt = [{"role": "system", "content": "Sen performans uzmanısın. Mimarın ve QA'in yazdıklarını incele, kodu olabilecek en hafif ve donanım dostu hale getir."}, {"role": "user", "content": f"Mimari:\n{mimar_res}\n\nQA Bulğuları:\n{qa_res}"}]
-            perf_res, _ = chat_cloud_streaming("codestral-25.01", perf_prompt, [], self.token, base_url, lambda x, tag=None: None, self._log)
+            perf_res, _ = chat_cloud_streaming("mistralai/codestral-2501", perf_prompt, [], nvidia_key, "https://integrate.api.nvidia.com/v1", lambda x, tag=None: None, self._log)
 
-            # 4. Git & Terminal Sorumlusu (phi-4-mini-instruct)
-            self._chat("💻 [Git & Terminal Sorumlusu (phi-4-mini-instruct)] Dosya ve komut adımları belirleniyor...\n", tag="pilot")
+            # 4. Git & Terminal Sorumlusu (gemini-2.0-flash) -> Google AI Studio
+            self._chat("🟡 [Google AI Studio | Git Sorumlusu] Altyapı ve terminal entegrasyonu planlanıyor...\n", tag="pilot")
             git_prompt = [{"role": "system", "content": "Hangi dosyaların değişeceğini ve hangi terminal komutlarının gerektiğini listele."}, {"role": "user", "content": f"Optimize edilmiş kod:\n{perf_res}"}]
-            git_res, _ = chat_cloud_streaming("phi-4-mini-instruct", git_prompt, [], self.token, base_url, lambda x, tag=None: None, self._log)
+            git_res, _ = chat_cloud_streaming("gemini-2.0-flash", git_prompt, [], google_key, "https://generativelanguage.googleapis.com/v1beta/openai/", lambda x, tag=None: None, self._log)
 
-            # 5. Baş Hakem (deepseek-r1-0528) - Sentezleyici
-            self._chat("⚖️ [Baş Hakem (deepseek-r1-0528)] Tüm tartışmalar sentezleniyor ve nihai kod yazılıyor...\n", tag="pilot")
+            # 5. Baş Hakem (deepseek-r1-0528) - Sentezleyici -> GitHub Models
+            self._chat("🐙 [GitHub Models | Baş Hakem] DeepSeek-R1 derin düşünme sürecinde, nihai konsensüs kodu üretiliyor...\n", tag="pilot")
             sentez_prompt = [{"role": "system", "content": SYSTEM_PROMPT + "\n\nEkibinin ürettiği tüm tartışmaları birleştir ve kullanıcının isteğini KUSURSUZ olarak yerine getir. Tools'ları kullanarak dosyaları düzenle."}, {"role": "user", "content": f"Kullanıcı İsteği: {user_request}\n\nMimari:\n{mimar_res}\nQA:\n{qa_res}\nPerformans:\n{perf_res}\nGit:\n{git_res}"}]
             
             # The remaining process handles exactly like normal using the synthesizer inputs as context
             self.provider = "GitHub Models"
+            self.token = github_key
             self.model = "deepseek-r1-0528"
             self.messages = sentez_prompt # Override context with the consensus
         # ------------------------
@@ -451,6 +459,9 @@ class AgentState:
                     content, tool_calls = chat_cloud_streaming(self.model, coder_msgs, TOOLS_DEF, self.token, base_url, self._chat, self._log)
                 elif "Google" in self.provider:
                     base_url = "https://generativelanguage.googleapis.com/v1beta/openai/"
+                    content, tool_calls = chat_cloud_streaming(self.model, coder_msgs, TOOLS_DEF, self.token, base_url, self._chat, self._log)
+                elif "NVIDIA" in self.provider:
+                    base_url = "https://integrate.api.nvidia.com/v1"
                     content, tool_calls = chat_cloud_streaming(self.model, coder_msgs, TOOLS_DEF, self.token, base_url, self._chat, self._log)
                 else:
                     from ollama_client import chat_with_tools, ensure_model_exists

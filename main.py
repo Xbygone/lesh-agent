@@ -222,6 +222,12 @@ class MainApp:
                 if mode == "Standart":
                     self.ui.combo_model.configure(values=groq_models)
                     self.ui.combo_model.set("llama-3.3-70b")
+            elif "NVIDIA" in choice:
+                self.ui.lbl_token.configure(text="NVIDIA API Key")
+                nvidia_models = ['meta/llama-3.3-70b-instruct', 'mistralai/codestral-2501', 'nvidia/llama-3.1-nemotron-51b-instruct']
+                if mode == "Standart":
+                    self.ui.combo_model.configure(values=nvidia_models)
+                    self.ui.combo_model.set("meta/llama-3.3-70b-instruct")
         
         self.on_model_change(self.ui.combo_model.get())
 

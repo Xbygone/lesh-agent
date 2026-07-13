@@ -155,7 +155,7 @@ class AppUI(ctk.CTk):
         self.lbl_provider.pack(anchor="w", padx=16, pady=(12, 4))
 
         self.combo_provider = ctk.CTkComboBox(
-            model_card, values=["Yerel (Ollama)", "GitHub Models", "Google AI Studio", "Groq Cloud"],
+            model_card, values=["Yerel (Ollama)", "GitHub Models", "Google AI Studio", "Groq Cloud", "NVIDIA Build"],
             fg_color=SURFACE_COLOR, border_color=BORDER_COLOR,
             button_color=SURFACE_COLOR, button_hover_color=SURFACE_HOVER,
             dropdown_fg_color=SURFACE_COLOR, dropdown_hover_color=SURFACE_HOVER,
