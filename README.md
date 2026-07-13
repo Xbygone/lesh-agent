@@ -14,6 +14,7 @@ Lesh is an advanced, autonomous AI coding agent designed to run primarily locall
 - 🤖 **Multi-LLM Capabilities**:
   - **Local (Ollama)**: True privacy. Supports `qwen2.5-coder`, `deepseek-r1` and more.
   - **Cloud Providers**: Seamlessly switch to GitHub Models, Google AI Studio (Gemini), or Groq Cloud via PATs/API keys to access state-of-the-art models like `gpt-4o`, `gemini-2.0-flash`, and `llama-3.3-70b`.
+- 🔐 **Cloud Accounts (Supabase)**: Securely log in and save your API keys (GitHub, Groq, etc.) to the cloud. Your keys are encrypted locally before transmission and synced across your devices via Supabase Row Level Security (RLS).
 - 📁 **Workspace Management**: Bind a folder to the agent. It will read files, execute commands, run code, and seamlessly git commit & push its own autonomous changes.
 - 📦 **One-Dir Architecture**: Packaged as a single directory executable (`--onedir`), keeping it completely open-source and transparent for you to inspect and modify.
 

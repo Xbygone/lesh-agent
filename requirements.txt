@@ -4,3 +4,5 @@ requests
 openai
 google-generativeai
 Pillow
+supabase
+cryptography

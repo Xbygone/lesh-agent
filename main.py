@@ -28,23 +28,7 @@ from git_manager import get_diff, commit_and_push
 from tools import read_file
 from updater import check_for_updates
 
-CONFIG_FILE = os.path.expanduser("~/.yerel_agent_config.json")
 
-def load_config():
-    if os.path.exists(CONFIG_FILE):
-        try:
-            with open(CONFIG_FILE, "r") as f:
-                return json.load(f)
-        except:
-            return {}
-    return {}
-
-def save_config(config):
-    try:
-        with open(CONFIG_FILE, "w") as f:
-            json.dump(config, f)
-    except:
-        pass
 
 
 class MainApp:
@@ -142,9 +126,8 @@ class MainApp:
     def on_token_change(self, event):
         provider = self.ui.combo_provider.get()
         token = self.ui.entry_pat.get().strip()
-        config = load_config()
-        config[provider] = token
-        save_config(config)
+        from db_manager import db
+        db.set_api_key(provider, token)
 
     def on_model_change(self, choice):
         if self.agent:
@@ -154,8 +137,9 @@ class MainApp:
             self._log(f"Model: {model_str}")
 
     def on_provider_change(self, choice):
-        config = load_config()
-        saved_token = config.get(choice, "")
+        # Fetch key from Supabase DB
+        from db_manager import db
+        saved_token = db.get_api_key(choice) or ""
         
         self.ui.entry_pat.delete(0, "end")
         self.ui.entry_pat.insert(0, saved_token)
@@ -499,8 +483,13 @@ class MainApp:
 
 if __name__ == "__main__":
     try:
-        app = MainApp()
-        app.run()
+        from auth_ui import AuthWindow
+        def start_main_app():
+            app = MainApp()
+            app.run()
+            
+        auth_app = AuthWindow(on_success=start_main_app)
+        auth_app.mainloop()
     except Exception as e:
         import traceback
         with open("crash_log.txt", "a", encoding="utf-8") as f:
