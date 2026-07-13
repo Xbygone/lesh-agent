@@ -498,5 +498,12 @@ class MainApp:
 
 
 if __name__ == "__main__":
-    app = MainApp()
-    app.run()
+    try:
+        app = MainApp()
+        app.run()
+    except Exception as e:
+        import traceback
+        with open("crash_log.txt", "a", encoding="utf-8") as f:
+            f.write(f"\n[{datetime.datetime.now()}] CRASH:\n")
+            f.write(traceback.format_exc())
+        print(f"FATAL ERROR: {e}")
