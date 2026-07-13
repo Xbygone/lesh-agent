@@ -49,6 +49,22 @@ class AppUI(ctk.CTk):
         self._build_chat()
         self._build_inspector()
         self._apply_tree_style()
+        
+        # Hide main layout initially
+        self.sidebar.grid_remove()
+        self.chat_panel.grid_remove()
+        self.inspector.grid_remove()
+        
+        from auth_ui import AuthFrame
+        self.auth_frame = AuthFrame(self, on_success=self._on_auth_success)
+        self.auth_frame.place(relx=0, rely=0, relwidth=1, relheight=1)
+
+    def _on_auth_success(self):
+        self.sidebar.grid()
+        self.chat_panel.grid()
+        self.inspector.grid()
+        # Trigger an event to main.py to fetch tokens
+        self.event_generate("<<AuthSuccess>>")
 
     # ─────────────────────────────────────────────
     # LEFT SIDEBAR

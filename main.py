@@ -28,8 +28,23 @@ from git_manager import get_diff, commit_and_push
 from tools import read_file
 from updater import check_for_updates
 
+CONFIG_FILE = os.path.expanduser("~/.yerel_agent_config.json")
 
+def load_config():
+    if os.path.exists(CONFIG_FILE):
+        try:
+            with open(CONFIG_FILE, "r") as f:
+                return json.load(f)
+        except:
+            return {}
+    return {}
 
+def save_config(config):
+    try:
+        with open(CONFIG_FILE, "w") as f:
+            json.dump(config, f)
+    except:
+        pass
 
 class MainApp:
     def __init__(self):
@@ -59,11 +74,13 @@ class MainApp:
         
         self.ui.tree.bind("<<TreeviewSelect>>", self.on_tree_select)
         self.ui.chat_list.bind("<<TreeviewSelect>>", self.on_chat_select)
-
+        self.ui.bind("<<AuthSuccess>>", self._on_auth_success)
         threading.Thread(target=self._check_ollama, daemon=True).start()
         
-        self._load_initial_config()
         self.run_updater()
+
+    def _on_auth_success(self, event=None):
+        self.on_provider_change(self.ui.combo_provider.get())
 
     def run_updater(self):
         self.ui.btn_update.configure(state="disabled", text="Checking updates...")
@@ -85,12 +102,9 @@ class MainApp:
         check_for_updates(status_cb, complete_cb)
 
     def _load_initial_config(self):
-        config = load_config()
+        config = {} # Config fetching was removed because it's now in Supabase
         self.workspace_path = config.get("last_workspace", None)
         if self.workspace_path and os.path.exists(self.workspace_path):
-            self.ui.workspace_path_text = os.path.basename(self.workspace_path)
-            self.ui.btn_select_folder.configure(text=f"📁 {self.ui.workspace_path_text}")
-            self._populate_tree(self.workspace_path)
             self._populate_chats()
             self.refresh_diff()
             self._make_agent()
@@ -483,13 +497,8 @@ class MainApp:
 
 if __name__ == "__main__":
     try:
-        from auth_ui import AuthWindow
-        def start_main_app():
-            app = MainApp()
-            app.run()
-            
-        auth_app = AuthWindow(on_success=start_main_app)
-        auth_app.mainloop()
+        app = MainApp()
+        app.run()
     except Exception as e:
         import traceback
         with open("crash_log.txt", "a", encoding="utf-8") as f:
