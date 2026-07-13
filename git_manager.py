@@ -30,7 +30,10 @@ def get_diff(workspace_path):
     """Kaydedilmemiş değişikliklerin diff'ini döndürür."""
     res = run_git_command(["git", "diff"], workspace_path)
     if res["success"]:
-        return res["output"]
+        out = res["output"]
+        if len(out) > 50000:
+            return out[:50000] + "\n\n... (diff too large, truncated)"
+        return out
     return ""
 
 def is_git_repo(workspace_path):

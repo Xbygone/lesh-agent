@@ -273,8 +273,9 @@ class MainApp:
     # ─────────────────────────────────────────────
     def get_sessions_dir(self):
         if not self.workspace_path:
-            return None
-        d = os.path.join(self.workspace_path, ".lesh", "sessions")
+            d = os.path.expanduser("~/.lesh/sessions")
+        else:
+            d = os.path.join(self.workspace_path, ".lesh", "sessions")
         os.makedirs(d, exist_ok=True)
         return d
 
@@ -404,20 +405,35 @@ class MainApp:
         for item in self.ui.tree.get_children():
             self.ui.tree.delete(item)
         root = self.ui.tree.insert("", "end", text=os.path.basename(path), open=True)
-        self._fill_tree(root, path)
 
-    def _fill_tree(self, parent, path):
-        try:
-            entries = sorted(os.listdir(path))
-            for name in entries:
-                if name in (".git", "venv", "__pycache__", "node_modules", ".venv", ".lesh"):
-                    continue
-                full = os.path.join(path, name)
-                node = self.ui.tree.insert(parent, "end", text=name, open=False)
-                if os.path.isdir(full):
-                    self._fill_tree(node, full)
-        except PermissionError:
-            pass
+        def _scan():
+            def _scan_dir(current_path):
+                nodes = []
+                try:
+                    entries = sorted(os.listdir(current_path))
+                    for name in entries:
+                        if name in (".git", "venv", "__pycache__", "node_modules", ".venv", ".lesh"):
+                            continue
+                        full = os.path.join(current_path, name)
+                        if os.path.isdir(full):
+                            nodes.append({"name": name, "is_dir": True, "children": _scan_dir(full)})
+                        else:
+                            nodes.append({"name": name, "is_dir": False})
+                except PermissionError:
+                    pass
+                return nodes
+            
+            tree_data = _scan_dir(path)
+            
+            def _insert_nodes(parent, nodes):
+                for node in nodes:
+                    n = self.ui.tree.insert(parent, "end", text=node["name"], open=False)
+                    if node["is_dir"]:
+                        _insert_nodes(n, node.get("children", []))
+
+            self.ui.after(0, lambda: _insert_nodes(root, tree_data))
+
+        threading.Thread(target=_scan, daemon=True).start()
 
     # ─────────────────────────────────────────────
     # SEND MESSAGE
@@ -517,9 +533,19 @@ class MainApp:
     # ─────────────────────────────────────────────
     def refresh_diff(self):
         if not self.workspace_path:
+            self.ui.diff_text = "No workspace selected."
+            if hasattr(self.ui, 'diff_textbox'):
+                self.ui.diff_textbox.configure(state="normal")
+                self.ui.diff_textbox.delete("1.0", "end")
+                self.ui.diff_textbox.insert("1.0", self.ui.diff_text)
+                self.ui.diff_textbox.configure(state="disabled")
             return
-        diff = get_diff(self.workspace_path) or "No changes detected."
-        self.ui.after(0, lambda: self.ui.set_diff(diff))
+        
+        def _get_diff_bg():
+            diff = get_diff(self.workspace_path) or "No changes detected."
+            self.ui.after(0, lambda: self.ui.set_diff(diff))
+            
+        threading.Thread(target=_get_diff_bg, daemon=True).start()
 
     def push_to_git(self):
         if not self.workspace_path:
