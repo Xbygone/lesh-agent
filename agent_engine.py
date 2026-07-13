@@ -397,7 +397,7 @@ class AgentState:
         normalized_messages = []
         for msg in self.messages:
             new_msg = msg.copy()
-            if "tool_calls" in new_msg:
+            if new_msg.get("tool_calls"):
                 formatted_tcs = []
                 for tc in new_msg["tool_calls"]:
                     if isinstance(tc, dict):
@@ -493,8 +493,20 @@ class AgentState:
 
             assistant_msg = {"role": "assistant", "content": content or ""}
             if tool_calls:
-                # Orijinal dönen tool_calls'ı self.messages'a kaydediyoruz, formattan bağımsız olarak.
-                assistant_msg["tool_calls"] = tool_calls
+                safe_tcs = []
+                for tc in tool_calls:
+                    if isinstance(tc, dict):
+                        safe_tcs.append(tc)
+                    else:
+                        safe_tcs.append({
+                            "id": getattr(tc, "id", "call_123"),
+                            "type": "function",
+                            "function": {
+                                "name": getattr(tc.function, "name", ""),
+                                "arguments": getattr(tc.function, "arguments", "{}")
+                            }
+                        })
+                assistant_msg["tool_calls"] = safe_tcs
 
             coder_msgs.append(assistant_msg)
             self.messages.append(assistant_msg)

@@ -76,12 +76,15 @@ def chat_with_tools(model_name, messages, tools, log_callback=None):
         if log_callback:
             log_callback(f"[MODEL] {model_name} çağrılıyor... ({len(messages)} mesaj)")
 
-        response = client.chat(
-            model=model_name,
-            messages=messages,
-            tools=tools,
-            stream=False
-        )
+        kwargs = {
+            "model": model_name,
+            "messages": messages,
+            "stream": False
+        }
+        if tools:
+            kwargs["tools"] = tools
+
+        response = client.chat(**kwargs)
 
         # DÜZELTME: response bir Pydantic nesnesidir, dict değil!
         msg = response.message

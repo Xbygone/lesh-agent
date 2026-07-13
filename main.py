@@ -461,8 +461,15 @@ class MainApp:
         self.ui.btn_send.configure(state="disabled", text="⏳")
 
         def _run():
-            self.agent.run()
-            self._flush()
+            try:
+                self.agent.run()
+            except Exception as e:
+                self._log(f"[FATAL ERROR] AgentState.run crashed: {e}")
+                import traceback
+                self._log(traceback.format_exc())
+                self.ui.append_chat(f"\n[SİSTEM HATASI] Ajan çöktü: {e}\n", tag="system")
+            finally:
+                self._flush()
             
             try:
                 s_dir = self.get_sessions_dir()
