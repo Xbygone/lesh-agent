@@ -160,7 +160,13 @@ class MainApp:
         self.ui.entry_pat.delete(0, "end")
         self.ui.entry_pat.insert(0, saved_token)
 
-        if "Yerel" in choice:
+        if "Oto-Pilot" in choice:
+            self.ui.lbl_token.grid()
+            self.ui.entry_pat.grid()
+            self.ui.lbl_token.configure(text="GitHub PAT Token (Oto-Pilot)")
+            self.ui.combo_model.configure(values=["Dinamik Yönlendirme"])
+            self.ui.combo_model.set("Dinamik Yönlendirme")
+        elif "Yerel" in choice:
             self.ui.lbl_token.grid_remove()
             self.ui.entry_pat.grid_remove()
             self.ui.combo_model.configure(values=["qwen2.5-coder:7b", "qwen3.5:4b", "deepseek-r1:8b"])

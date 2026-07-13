@@ -292,6 +292,41 @@ class AgentState:
         self._log(f"Ajan başlatıldı | Model: {self.model} ({self.provider})")
         self._log("═══════════════════════════════")
 
+        # --- AUTO-PILOT LOGIC ---
+        if "Oto-Pilot" in self.provider:
+            self._chat("\n🤖 Oto-Pilot devreye girdi...\n", tag="pilot")
+            self._chat("🔍 İstek zorluğu analiz ediliyor...\n", tag="pilot")
+            
+            # Analyze prompt using a small local model
+            last_msg = ""
+            for msg in reversed(self.messages):
+                if msg.get("role") == "user":
+                    last_msg = msg.get("content", "")
+                    break
+            
+            analyzer_prompt = f"Aşağıdaki kodlama/yardım isteğini analiz et. Sadece bir metin değişikliği, küçük fonksiyon düzeltmesi veya basit bir soru ise 'KOLAY' yaz. Kapsamlı bir mimari değişiklik, karmaşık mantık oluşturma veya zor bir kodlama problemi ise 'ZOR' yaz. Sadece KOLAY veya ZOR cevabı ver.\n\nİstek: {last_msg}"
+            
+            try:
+                from ollama_client import chat_with_tools
+                analyzer_msgs = [{"role": "user", "content": analyzer_prompt}]
+                self._log("[Oto-Pilot] qwen3.5:4b ile analiz ediliyor...")
+                analysis_res, _ = chat_with_tools("qwen3.5:4b", analyzer_msgs, [], lambda x: None)
+                analysis_res = analysis_res.strip().upper() if analysis_res else "ZOR"
+            except Exception as e:
+                self._log(f"[Oto-Pilot] Analiz hatası: {e}. Varsayılan ZOR seçildi.")
+                analysis_res = "ZOR"
+            
+            if "KOLAY" in analysis_res:
+                self._chat("💡 Analiz Sonucu: Rutin/hafif görev algılandı. Performans ve hız için Yerel Qwen2.5-Coder modeline bağlanılıyor.\n", tag="pilot")
+                self.provider = "Yerel (Ollama)"
+                self.model = "qwen2.5-coder:7b"
+            else:
+                self._chat("🧠 Analiz Sonucu: Karmaşık kod/mantık mimarisi algılandı. Maksimum doğruluk için Bulut DeepSeek-R1 / Claude 3.5 Sonnet modeline geçiş yapılıyor.\n", tag="pilot")
+                self.provider = "GitHub Models"
+                self.model = "deepseek-r1-0528 (Reasoning)"
+        # ------------------------
+
+
         current_system_prompt = SYSTEM_PROMPT
         if self.active_file_context:
             current_system_prompt += f"\n\n[DİKKAT] Kullanıcının odaklandığı dosya ({self.active_file_context['filepath']}) içeriği:\n{self.active_file_context['content']}\n"

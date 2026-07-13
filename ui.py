@@ -130,7 +130,7 @@ class AppUI(ctk.CTk):
         self.lbl_provider.pack(anchor="w", padx=16, pady=(12, 4))
 
         self.combo_provider = ctk.CTkComboBox(
-            model_card, values=["Yerel (Ollama)", "GitHub Models", "Google AI Studio", "Groq Cloud"],
+            model_card, values=["Oto-Pilot (Auto)", "Yerel (Ollama)", "GitHub Models", "Google AI Studio", "Groq Cloud"],
             fg_color=SURFACE_COLOR, border_color=BORDER_COLOR,
             button_color=SURFACE_COLOR, button_hover_color=SURFACE_HOVER,
             dropdown_fg_color=SURFACE_COLOR, dropdown_hover_color=SURFACE_HOVER,
@@ -190,6 +190,7 @@ class AppUI(ctk.CTk):
         self.chat_display.tag_config("user", foreground=PRIMARY_COLOR)
         self.chat_display.tag_config("tool_ok", foreground=SUCCESS_COLOR)
         self.chat_display.tag_config("think", foreground=THINK_COLOR)
+        self.chat_display.tag_config("pilot", foreground="#888888", font=("Consolas", 12, "italic"))
 
         # Input bar (Rounded, professional)
         bar = ctk.CTkFrame(
