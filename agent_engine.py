@@ -4,18 +4,14 @@ import requests
 import openai
 from tools import read_file, write_file, search_web, list_directory, run_terminal_command
 
-AGENT_SYSTEM_PROMPT = """Sen profesyonel bir Otonom Yazılım Mühendisi Ajanısın.
+SYSTEM_PROMPT = """Sen 'yerel-agent' adında, kullanıcının yerel bilgisayarında dosya sistemi ve terminal/git yetkilerine sahip özerk bir kod asistanısın.
 Sana verilen araçları (write_file, read_file, run_terminal_command vb.) DOĞRUDAN KULLANMAK ZORUNDASIN.
 
-ALTIN KURAL: Kullanıcı senden bir şey oluşturmanı istediğinde, KESİNLİKLE sadece metin olarak kod yazma.
-Her zaman write_file aracını çağırarak dosyaları GERÇEKTEN bilgisayara KAYDET.
-
-Örnek:
-- "websitesi yap" → index.html, style.css, script.js dosyalarını write_file ile oluştur
-- "python scripti yaz" → main.py dosyasını write_file ile oluştur
-- "pip install" gerekliyse → run_terminal_command ile yükle
-
-Görev bitince: Tüm dosyaları oluşturduktan sonra run_terminal_command ile "git add . && git commit -m 'AI Update' && git push" çalıştır.
+ALTIN KURALLAR:
+1. Dosya okuma işlemlerinde sadece kullanıcının sol panelden seçtiği aktif dosyanın context içeriğine odaklan.
+2. Kod düzenlemesi yaparken tüm dosyayı baştan yazmak yerine, sadece değişen satırları net bir şekilde belirt ve kod kalitesini koru.
+3. Terminal ve Git süreçlerinde, kullanıcının sağ paneldeki onay butonuna basacağını bilerek hareket et. Yapacağın işlemleri mantıklı adımlara böl.
+4. Kullanıcı senden bir şey oluşturmanı istediğinde, KESİNLİKLE sadece metin olarak kod yazma. Her zaman write_file aracını çağırarak dosyaları GERÇEKTEN bilgisayara KAYDET.
 """
 
 TOOLS_DEF = [
@@ -296,20 +292,9 @@ class AgentState:
         self._log(f"Ajan başlatıldı | Model: {self.model} ({self.provider})")
         self._log("═══════════════════════════════")
 
-        # Sistem promptundan git push zorunluluğunu kaldırdık
-        system_prompt = """Sen profesyonel bir Otonom Yazılım Mühendisi Ajanısın.
-Sana verilen araçları (write_file, read_file, run_terminal_command vb.) DOĞRUDAN KULLANMAK ZORUNDASIN.
-
-ALTIN KURAL: Kullanıcı senden bir şey oluşturmanı istediğinde, KESİNLİKLE sadece metin olarak kod yazma.
-Her zaman write_file aracını çağırarak dosyaları GERÇEKTEN bilgisayara KAYDET.
-
-Örnek:
-- "websitesi yap" → index.html, style.css, script.js dosyalarını write_file ile oluştur
-- "python scripti yaz" → main.py dosyasını write_file ile oluştur
-- "pip install" gerekliyse → run_terminal_command ile yükle
-"""
+        current_system_prompt = SYSTEM_PROMPT
         if self.active_file_context:
-            system_prompt += f"\n\n[DİKKAT] Kullanıcının odaklandığı dosya ({self.active_file_context['filepath']}) içeriği:\n{self.active_file_context['content']}\n"
+            current_system_prompt += f"\n\n[DİKKAT] Kullanıcının odaklandığı dosya ({self.active_file_context['filepath']}) içeriği:\n{self.active_file_context['content']}\n"
 
         # Geçmiş mesajları mevcut sağlayıcıya göre (Ollama vs OpenAI formatı) normalize et
         normalized_messages = []
@@ -362,7 +347,7 @@ Her zaman write_file aracını çağırarak dosyaları GERÇEKTEN bilgisayara KA
                 new_msg["tool_calls"] = formatted_tcs
             normalized_messages.append(new_msg)
 
-        coder_msgs = [{"role": "system", "content": system_prompt}] + normalized_messages
+        coder_msgs = [{"role": "system", "content": current_system_prompt}] + normalized_messages
         max_steps = 15
 
         for step in range(max_steps):
