@@ -392,8 +392,8 @@ class MainApp:
             model=model_str,
             workspace_path=self.workspace_path,
             token=token,
-            chat_callback=self._chat_callback,
-            log_callback=self._log_callback
+            chat_callback=self._chat_cb,
+            log_callback=self._log_cb
         )
         self.agent.run_mode = self.ui.mode_selector.get()
 
