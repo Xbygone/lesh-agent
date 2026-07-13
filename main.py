@@ -121,23 +121,27 @@ class MainApp:
     def on_mode_change(self, mode):
         # Depending on mode, we might lock or hide provider/model combos
         if mode == "Standart":
+            self.ui.combo_provider.configure(values=["Yerel (Ollama)", "GitHub Models", "NVIDIA Build", "Google AI Studio", "Groq Cloud"])
             self.ui.combo_provider.configure(state="normal")
             self.ui.combo_model.configure(state="normal")
             self.on_provider_change(self.ui.combo_provider.get())
         elif mode == "Oto-Pilot":
-            self.ui.combo_provider.set("GitHub Models") # Oto-Pilot needs a cloud fallback
-            self.ui.combo_provider.configure(state="disabled")
-            self.ui.combo_model.configure(values=["Dinamik Yönlendirme"])
-            self.ui.combo_model.set("Dinamik Yönlendirme")
+            self.ui.combo_provider.configure(state="normal")
+            self.ui.combo_provider.configure(values=["GitHub Models", "NVIDIA Build", "Google AI Studio", "Groq Cloud"])
+            self.ui.combo_provider.set("GitHub Models")
+            self.ui.combo_model.configure(values=["Dinamik Yönlendirme (Zor -> Bulut)"])
+            self.ui.combo_model.set("Dinamik Yönlendirme (Zor -> Bulut)")
             self.ui.combo_model.configure(state="disabled")
             self.on_provider_change("GitHub Models", mode_override=mode)
         elif mode == "Yazılım Ofisi":
-            self.ui.combo_provider.set("GitHub Models")
+            self.ui.combo_provider.configure(state="normal")
+            self.ui.combo_provider.configure(values=["Çapraz Platform (NVIDIA/GitHub/Google)"])
+            self.ui.combo_provider.set("Çapraz Platform (NVIDIA/GitHub/Google)")
             self.ui.combo_provider.configure(state="disabled")
             self.ui.combo_model.configure(values=["5-Agent Consensus"])
             self.ui.combo_model.set("5-Agent Consensus")
             self.ui.combo_model.configure(state="disabled")
-            self.on_provider_change("GitHub Models", mode_override=mode)
+            self.on_provider_change("Çapraz Platform (NVIDIA/GitHub/Google)", mode_override=mode)
             
         if self.agent:
             self.agent.run_mode = mode
@@ -194,6 +198,10 @@ class MainApp:
             if mode == "Standart":
                 self.ui.combo_model.configure(values=['qwen2.5-coder:7b', 'qwen3.5:4b', 'phi-4-mini-instruct'])
                 self.ui.combo_model.set("qwen2.5-coder:7b")
+        elif "Çapraz Platform" in choice:
+            self.ui.lbl_token.configure(text="Standart moddan API Anahtarlarını girin")
+            self.ui.lbl_token.grid()
+            self.ui.entry_pat.grid_remove()
         else:
             self.ui.lbl_token.grid()
             self.ui.entry_pat.grid()

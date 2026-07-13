@@ -156,12 +156,15 @@ def chat_cloud_streaming(model_name, messages, tools, token, base_url, chat_call
     parser = StreamingThinkParser(chat_callback)
     
     try:
-        response = client.chat.completions.create(
-            model=model_name,
-            messages=messages,
-            tools=tools,
-            stream=True
-        )
+        kwargs = {
+            "model": model_name,
+            "messages": messages,
+            "stream": True
+        }
+        if tools:
+            kwargs["tools"] = tools
+
+        response = client.chat.completions.create(**kwargs)
         
         full_content = ""
         tool_calls_buffer = {}
@@ -324,9 +327,16 @@ class AgentState:
                 self.provider = "Yerel (Ollama)"
                 self.model = "qwen2.5-coder:7b"
             else:
-                self._chat("🧠 Analiz Sonucu: Karmaşık kod/mantık mimarisi algılandı. Maksimum doğruluk için Bulut DeepSeek-R1 modeline geçiş yapılıyor.\n", tag="pilot")
-                self.provider = "GitHub Models"
-                self.model = "deepseek-r1-0528"
+                self._chat(f"🧠 Analiz Sonucu: Karmaşık kod/mantık mimarisi algılandı. Maksimum doğruluk için {self.provider} bulut modeline geçiş yapılıyor.\n", tag="pilot")
+                if "NVIDIA" in self.provider:
+                    self.model = "meta/llama-3.3-70b-instruct"
+                elif "Google" in self.provider:
+                    self.model = "gemini-2.0-flash"
+                elif "Groq" in self.provider:
+                    self.model = "llama-3.3-70b"
+                else:
+                    self.provider = "GitHub Models"
+                    self.model = "deepseek-r1-0528"
 
         # --- YAZILIM OFİSİ LOGIC ---
         elif getattr(self, "run_mode", "Standart") == "Yazılım Ofisi":
