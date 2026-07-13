@@ -40,6 +40,13 @@ class AuthWindow(ctk.CTk):
         self.btn_register = ctk.CTkButton(self, text="Kayıt Ol", width=250, height=40, fg_color="#333333", hover_color="#444444", font=("Inter", 14), command=self.do_register)
         self.btn_register.pack(pady=5)
         
+        self.btn_skip = ctk.CTkButton(self, text="Misafir Olarak Devam Et (Atla)", width=250, height=40, fg_color="transparent", hover_color="#333333", border_width=1, border_color="#555555", font=("Inter", 13), command=self.do_skip)
+        self.btn_skip.pack(pady=(15, 5))
+        
+    def do_skip(self):
+        self.destroy()
+        self.on_success()
+
     def do_login(self):
         email = self.entry_email.get().strip()
         pwd = self.entry_password.get().strip()
