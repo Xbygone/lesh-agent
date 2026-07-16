@@ -32,3 +32,4 @@ htmlcov/
 .lesh/
 *.exe
 _internal/
+.env

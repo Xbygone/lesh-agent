@@ -2,12 +2,28 @@ import os
 from supabase import create_client, Client
 from cryptography.fernet import Fernet
 
-SUPABASE_URL = "https://removed-supabase-project.supabase.co"
-SUPABASE_KEY = "***REMOVED_KEY***"
-# In a real app, the encryption key should be derived from the user's password or a secure local vault.
-# For simplicity and ease of setup without breaking the OS specific vault, we'll use a static key for demonstration.
-# However, this defeats the purpose of strong local security. To keep it secure against basic snooping:
-ENCRYPTION_KEY = b'***REMOVED_FERNET***'
+def load_env():
+    env_path = os.path.join(os.path.dirname(__file__), '.env')
+    if os.path.exists(env_path):
+        with open(env_path, 'r', encoding='utf-8') as f:
+            for line in f:
+                line = line.strip()
+                if line and not line.startswith('#') and '=' in line:
+                    key, val = line.split('=', 1)
+                    os.environ[key.strip()] = val.strip().strip('"\'')
+
+load_env()
+
+SUPABASE_URL = os.environ.get("SUPABASE_URL", "")
+SUPABASE_KEY = os.environ.get("SUPABASE_KEY", "")
+ENCRYPTION_KEY_STR = os.environ.get("ENCRYPTION_KEY", "")
+
+if ENCRYPTION_KEY_STR:
+    ENCRYPTION_KEY = ENCRYPTION_KEY_STR.encode()
+else:
+    # Fallback
+    ENCRYPTION_KEY = b'***REMOVED_FERNET***'
+
 cipher_suite = Fernet(ENCRYPTION_KEY)
 
 class DBManager:

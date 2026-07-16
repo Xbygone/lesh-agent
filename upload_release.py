@@ -2,7 +2,21 @@ import requests
 import json
 import os
 
-token = "***REMOVED_PAT***"
+def load_env():
+    env_path = os.path.join(os.path.dirname(__file__), '.env')
+    if os.path.exists(env_path):
+        with open(env_path, 'r', encoding='utf-8') as f:
+            for line in f:
+                line = line.strip()
+                if line and not line.startswith('#') and '=' in line:
+                    key, val = line.split('=', 1)
+                    os.environ[key.strip()] = val.strip().strip('"\'')
+
+load_env()
+token = os.environ.get("GITHUB_TOKEN", "")
+if not token:
+    print("GITHUB_TOKEN bulunamadı. Lütfen .env dosyasını kontrol edin.")
+    exit(1)
 repo = "Xbygone/lesh-agent"
 tag = "v1.4.3"
 
