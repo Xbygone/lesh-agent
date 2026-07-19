@@ -3,7 +3,7 @@
 - Streams model output (with <think> tag handling) to the UI.
 - Executes tools with workspace sandboxing.
 - Terminal commands require explicit user approval (unless auto-approve is on).
-- Run can be cancelled between steps via cancel_event.
+- Runs can be cancelled between steps via cancel_event.
 """
 
 import json
@@ -11,15 +11,16 @@ import threading
 
 from tools import read_file, write_file, search_web, list_directory, run_terminal_command
 
-SYSTEM_PROMPT = """Sen 'Lesh Agent' adında, kullanıcının yerel bilgisayarında dosya sistemi ve terminal yetkilerine sahip özerk bir kod asistanısın.
-Sana verilen araçları (write_file, read_file, run_terminal_command vb.) DOĞRUDAN KULLANMAK ZORUNDASIN.
+SYSTEM_PROMPT = """You are 'Lesh Agent', an autonomous coding assistant with file-system and terminal access on the user's local machine.
+You MUST use the tools provided to you (write_file, read_file, run_terminal_command, etc.) DIRECTLY.
 
-ALTIN KURALLAR:
-1. Kullanıcı senden bir şey oluşturmanı istediğinde, KESİNLİKLE sadece metin olarak kod yazma. Her zaman write_file aracını çağırarak dosyaları GERÇEKTEN kaydet.
-2. Kod düzenlerken dosyanın mevcut içeriğini önce read_file ile oku, sonra tam ve çalışır halini yaz.
-3. Terminal komutları kullanıcı onayından geçer. Bir komut reddedilirse inatlaşma; alternatif bir yol öner veya kullanıcıya nedenini sor.
-4. Yıkıcı işlemlerden (dosya silme, geri alınamaz komutlar) kaçın; gerekiyorsa önce kullanıcıya danış.
-5. Kullanıcıya karşı şeffaf ol: ne yaptığını kısaca açıkla, hatalarını gizleme.
+GOLDEN RULES:
+1. When the user asks you to build something, NEVER just print code as text. Always call write_file to actually save files to disk.
+2. Before editing code, read the current file content with read_file, then write the complete working version.
+3. Terminal commands go through user approval. If a command is rejected, do not insist; suggest an alternative or ask the user why.
+4. Avoid destructive operations (deleting files, irreversible commands); consult the user first if needed.
+5. Be transparent with the user: briefly explain what you are doing and never hide errors.
+6. Respond in the language the user writes in.
 """
 
 TOOLS_DEF = [
@@ -105,7 +106,7 @@ PROVIDER_BASE_URLS = {
 
 
 def resolve_model_id(provider: str, model: str) -> str:
-    """GitHub Models' new endpoint requires publisher-prefixed IDs."""
+    """GitHub Models' endpoint requires publisher-prefixed IDs."""
     if "GitHub" in provider and "/" not in model:
         return f"openai/{model}"
     return model
@@ -127,7 +128,7 @@ class StreamingThinkParser:
                 if idx != -1:
                     if idx > 0:
                         self.chat_callback(self.buffer[:idx], tag=None)
-                    self.chat_callback("\n[DÜŞÜNÜYOR...]\n", tag="think")
+                    self.chat_callback("\n[THINKING...]\n", tag="think")
                     self.is_thinking = True
                     self.buffer = self.buffer[idx + 7:]
                 else:
@@ -212,13 +213,13 @@ def chat_cloud_streaming(model_name, messages, tools, token, base_url, chat_call
         tool_calls = list(tool_calls_buffer.values())
         if log_callback and tool_calls:
             names = [tc["function"]["name"] for tc in tool_calls]
-            log_callback(f"[ARAÇ] Çağrılacak araçlar: {names}")
+            log_callback(f"[TOOLS] Requested: {names}")
         return full_content, tool_calls
 
     except Exception as e:
         if log_callback:
-            log_callback(f"[HATA] API Hatası: {str(e)}")
-        return f"Hata: {str(e)}", []
+            log_callback(f"[ERROR] API error: {str(e)}")
+        return f"ERROR: {str(e)}", []
 
 
 class AgentState:
@@ -232,7 +233,7 @@ class AgentState:
         self.log_callback = log_callback
         self.approval_callback = approval_callback
         self.auto_approve = False
-        self.run_mode = "Standart"
+        self.run_mode = "Standard"
         self.messages = []
         self.active_file_context = None
         self.cancel_event = threading.Event()
@@ -244,7 +245,7 @@ class AgentState:
 
     def set_active_file(self, filepath, content):
         self.active_file_context = {"filepath": filepath, "content": content}
-        self._log(f"Bağlama eklendi: {filepath}")
+        self._log(f"Added to context: {filepath}")
 
     def cancel(self):
         self.cancel_event.set()
@@ -291,7 +292,7 @@ class AgentState:
             if action == "write_file":
                 result = write_file(args.get("filepath", ""), args.get("content", ""), self.workspace_path)
                 ok = json.loads(result).get("success")
-                self._log(("✅ Kaydedildi: " if ok else "❌ Yazılamadı: ") + str(args.get("filepath")))
+                self._log(("✅ Saved: " if ok else "❌ Write failed: ") + str(args.get("filepath")))
 
             elif action == "read_file":
                 result = read_file(args.get("filepath", ""), self.workspace_path)
@@ -301,11 +302,11 @@ class AgentState:
 
             elif action == "run_terminal_command":
                 cmd = args.get("command", "")
-                if not self._approve("Terminal Komutu Onayı", cmd):
-                    self._chat("⛔ Komut kullanıcı tarafından reddedildi.\n", tag="system")
+                if not self._approve("Terminal Command Approval", cmd):
+                    self._chat("⛔ Command rejected by user.\n", tag="system")
                     result = json.dumps({
-                        "error": "Kullanıcı bu komutu REDDETTİ. Komutu tekrar deneme; "
-                                 "alternatif öner veya kullanıcıya nedenini sor."
+                        "error": "The user REJECTED this command. Do not retry it; "
+                                 "suggest an alternative or ask the user why."
                     })
                 else:
                     self._log(f"$ {cmd}")
@@ -320,12 +321,12 @@ class AgentState:
                 result = search_web(args.get("query", ""))
 
             else:
-                result = json.dumps({"error": f"Bilinmeyen araç: {action}"})
-                self._log(f"❌ Bilinmeyen araç: {action}")
+                result = json.dumps({"error": f"Unknown tool: {action}"})
+                self._log(f"❌ Unknown tool: {action}")
 
         except Exception as e:
             result = json.dumps({"error": str(e)})
-            self._log(f"❌ Hata ({action}): {str(e)}")
+            self._log(f"❌ Error ({action}): {str(e)}")
 
         return result
 
@@ -338,7 +339,7 @@ class AgentState:
 
     def _autopilot_route(self):
         """Route easy tasks to the local model, hard ones to the cloud."""
-        self._chat("\n🤖 Oto-Pilot: istek zorluğu analiz ediliyor...\n", tag="pilot")
+        self._chat("\n🤖 Auto-Pilot: analyzing request difficulty...\n", tag="pilot")
         last_msg = self._last_user_message()
 
         verdict = None
@@ -346,32 +347,34 @@ class AgentState:
             from ollama_client import check_ollama_status, chat_with_tools
             if check_ollama_status():
                 analyzer_prompt = (
-                    "Aşağıdaki kodlama isteğini sınıflandır. Küçük düzeltme/basit soru ise "
-                    "sadece 'KOLAY', kapsamlı mimari/karmaşık mantık ise sadece 'ZOR' yaz.\n\n"
-                    f"İstek: {last_msg[:2000]}"
+                    "Classify the following coding request. If it is a small fix or a simple "
+                    "question, answer only 'EASY'. If it involves broad architecture or complex "
+                    "logic, answer only 'HARD'.\n\n"
+                    f"Request: {last_msg[:2000]}"
                 )
                 res, _ = chat_with_tools(
                     "qwen2.5-coder:7b",
                     [{"role": "user", "content": analyzer_prompt}],
                     [], lambda x: None,
                 )
-                if res and "KOLAY" in res.upper():
-                    verdict = "KOLAY"
-                elif res and "ZOR" in res.upper():
-                    verdict = "ZOR"
+                if res and "EASY" in res.upper():
+                    verdict = "EASY"
+                elif res and "HARD" in res.upper():
+                    verdict = "HARD"
         except Exception as e:
-            self._log(f"[Oto-Pilot] Yerel analiz atlandı: {e}")
+            self._log(f"[Auto-Pilot] Local analysis skipped: {e}")
 
         if verdict is None:  # heuristic fallback
-            hard_words = ("mimari", "refactor", "tasarla", "architecture", "optimize", "sıfırdan", "proje")
-            verdict = "ZOR" if (len(last_msg) > 400 or any(w in last_msg.lower() for w in hard_words)) else "KOLAY"
+            hard_words = ("architecture", "refactor", "design", "optimize", "from scratch",
+                          "project", "mimari", "tasarla", "sıfırdan")
+            verdict = "HARD" if (len(last_msg) > 400 or any(w in last_msg.lower() for w in hard_words)) else "EASY"
 
-        if verdict == "KOLAY":
-            self._chat("💡 Rutin görev → Yerel qwen2.5-coder:7b kullanılacak.\n", tag="pilot")
-            self.provider = "Yerel (Ollama)"
+        if verdict == "EASY":
+            self._chat("💡 Routine task → using local qwen2.5-coder:7b.\n", tag="pilot")
+            self.provider = "Local (Ollama)"
             self.model = "qwen2.5-coder:7b"
         else:
-            self._chat(f"🧠 Karmaşık görev → {self.provider} bulut modeline yükseltiliyor.\n", tag="pilot")
+            self._chat(f"🧠 Complex task → escalating to {self.provider} cloud model.\n", tag="pilot")
             if "NVIDIA" in self.provider:
                 self.model = "meta/llama-3.3-70b-instruct"
             elif "Google" in self.provider:
@@ -384,8 +387,8 @@ class AgentState:
 
     def _software_office(self):
         """5-expert consensus pipeline. Builds extra context WITHOUT destroying
-        the user's chat history (older versions wiped self.messages here)."""
-        self._chat("\n🏢 Yazılım Ofisi: 5 uzman ajan konsensüs için toplandı...\n", tag="pilot")
+        the user's chat history."""
+        self._chat("\n🏢 Software Office: 5 expert agents assembled for consensus...\n", tag="pilot")
         user_request = self._last_user_message()
 
         from db_manager import db
@@ -398,68 +401,63 @@ class AgentState:
         ) if not k]
         if missing:
             self._chat(
-                f"\n⚠️ Yazılım Ofisi için eksik API anahtarları: {', '.join(missing)}. "
-                "Standart moddan ilgili sağlayıcıları seçip anahtarları girin.\n",
+                f"\n⚠️ Software Office is missing API keys for: {', '.join(missing)}. "
+                "Switch to Standard mode, select those providers and enter the keys.\n",
                 tag="system",
             )
-            raise RuntimeError("Yazılım Ofisi için API anahtarları eksik.")
+            raise RuntimeError("Missing API keys for Software Office.")
 
         def _quiet(x, tag=None):
             pass
 
-        steps = [
-            ("🟢 [NVIDIA] Yazılım Mimarı iskeleti tasarlıyor...",
-             "meta/llama-3.3-70b-instruct", PROVIDER_BASE_URLS["NVIDIA Build"], nvidia_key,
-             "Sen usta bir Yazılım Mimarısın. Sadece kodun genel mantığını ve iskeletini oluştur. Sadece markdown döndür.",
-             user_request),
-        ]
-
         # 1. Architect
-        self._chat(steps[0][0] + "\n", tag="pilot")
+        self._chat("🟢 [NVIDIA] Software Architect is designing the skeleton...\n", tag="pilot")
         mimar_res, _ = chat_cloud_streaming(
-            steps[0][1], [{"role": "system", "content": steps[0][4]}, {"role": "user", "content": steps[0][5]}],
-            [], steps[0][3], steps[0][2], _quiet, self._log)
+            "meta/llama-3.3-70b-instruct",
+            [{"role": "system", "content": "You are a master Software Architect. Produce only the overall logic and skeleton of the code. Return markdown only."},
+             {"role": "user", "content": user_request}],
+            [], nvidia_key, PROVIDER_BASE_URLS["NVIDIA Build"], _quiet, self._log)
         if self.cancel_event.is_set():
             return None
 
         # 2. QA
-        self._chat("🐙 [GitHub] Hata Avcısı (o4-mini) denetliyor...\n", tag="pilot")
+        self._chat("🐙 [GitHub] Bug Hunter (o4-mini) is auditing...\n", tag="pilot")
         qa_res, _ = chat_cloud_streaming(
             "openai/o4-mini",
-            [{"role": "system", "content": "Sen titiz bir QA testçisisin. Verilen tasarımı incele; bugları ve edge-case'leri bul, revize planı yaz."},
+            [{"role": "system", "content": "You are a meticulous QA tester. Review the given design; find bugs and edge cases, write a revision plan."},
              {"role": "user", "content": mimar_res}],
             [], github_key, PROVIDER_BASE_URLS["GitHub Models"], _quiet, self._log)
         if self.cancel_event.is_set():
             return None
 
         # 3. Performance
-        self._chat("🟢 [NVIDIA] Performans Uzmanı (Codestral) optimize ediyor...\n", tag="pilot")
+        self._chat("🟢 [NVIDIA] Performance Expert (Codestral) is optimizing...\n", tag="pilot")
         perf_res, _ = chat_cloud_streaming(
             "mistralai/codestral-2501",
-            [{"role": "system", "content": "Sen performans uzmanısın. Tasarım ve QA bulgularını birleştirip kodu hafif ve verimli hale getir."},
-             {"role": "user", "content": f"Mimari:\n{mimar_res}\n\nQA Bulguları:\n{qa_res}"}],
+            [{"role": "system", "content": "You are a performance expert. Combine the design and QA findings into a lean, efficient implementation plan."},
+             {"role": "user", "content": f"Architecture:\n{mimar_res}\n\nQA findings:\n{qa_res}"}],
             [], nvidia_key, PROVIDER_BASE_URLS["NVIDIA Build"], _quiet, self._log)
         if self.cancel_event.is_set():
             return None
 
         # 4. Infra
-        self._chat("🟡 [Google] Git/Terminal Sorumlusu planlıyor...\n", tag="pilot")
+        self._chat("🟡 [Google] Git/Terminal Lead is planning...\n", tag="pilot")
         git_res, _ = chat_cloud_streaming(
             "gemini-2.5-flash",
-            [{"role": "system", "content": "Hangi dosyaların değişeceğini ve hangi terminal komutlarının gerekeceğini kısa listele."},
-             {"role": "user", "content": f"Optimize edilmiş plan:\n{perf_res}"}],
+            [{"role": "system", "content": "List briefly which files will change and which terminal commands will be needed."},
+             {"role": "user", "content": f"Optimized plan:\n{perf_res}"}],
             [], google_key, PROVIDER_BASE_URLS["Google AI Studio"], _quiet, self._log)
         if self.cancel_event.is_set():
             return None
 
         # 5. Final judge runs the normal tool loop with the consensus as context
-        self._chat("🐙 [GitHub] Baş Hakem (DeepSeek-R1) nihai kodu üretiyor...\n", tag="pilot")
+        self._chat("🐙 [GitHub] Chief Judge (DeepSeek-R1) is producing the final code...\n", tag="pilot")
         self.provider = "GitHub Models"
         self.token = github_key
         self.model = "deepseek/DeepSeek-R1"
         return (
-            "\n\n[EKİP KONSENSÜS RAPORU — bu bilgileri kullanarak görevi araçlarla uygula]\n"
-            f"## Mimari\n{mimar_res}\n\n## QA\n{qa_res}\n\n## Performans\n{perf_res}\n\n## Altyapı\n{git_res}\n"
+            "\n\n[TEAM CONSENSUS REPORT — use this to implement the task with your tools]\n"
+            f"## Architecture\n{mimar_res}\n\n## QA\n{qa_res}\n\n## Performance\n{perf_res}\n\n## Infra\n{git_res}\n"
         )
 
     # ── main loop ─────────────────────────────────────────
@@ -470,20 +468,20 @@ class AgentState:
 
         try:
             self._log("═" * 40)
-            self._log(f"Ajan başlatıldı | Mod: {self.run_mode} | Model: {self.model} ({self.provider})")
+            self._log(f"Agent started | Mode: {self.run_mode} | Model: {self.model} ({self.provider})")
 
-            if self.run_mode == "Oto-Pilot":
+            if self.run_mode == "Auto-Pilot":
                 self._autopilot_route()
-            elif self.run_mode == "Yazılım Ofisi":
+            elif self.run_mode == "Software Office":
                 extra_context = self._software_office() or ""
                 if self.cancel_event.is_set():
-                    self._chat("\n⏹ Görev iptal edildi.\n", tag="system")
+                    self._chat("\n⏹ Task cancelled.\n", tag="system")
                     return
 
             system_prompt = SYSTEM_PROMPT + extra_context
             if self.active_file_context:
                 system_prompt += (
-                    f"\n\n[DİKKAT] Kullanıcının odaklandığı dosya ({self.active_file_context['filepath']}):\n"
+                    f"\n\n[NOTE] File the user is focused on ({self.active_file_context['filepath']}):\n"
                     f"{self.active_file_context['content'][:20000]}\n"
                 )
 
@@ -492,14 +490,14 @@ class AgentState:
 
             for step in range(max_steps):
                 if self.cancel_event.is_set():
-                    self._chat("\n⏹ Görev kullanıcı tarafından durduruldu.\n", tag="system")
+                    self._chat("\n⏹ Task stopped by user.\n", tag="system")
                     break
 
-                self._log(f"[Adım {step + 1}] Model düşünüyor...")
+                self._log(f"[Step {step + 1}] Model is thinking...")
                 content, tool_calls = self._call_model(coder_msgs)
 
-                if isinstance(content, str) and content.startswith("Hata:"):
-                    self._chat(f"\n⚠️ Model hatası: {content[5:250]}\n", tag="system")
+                if isinstance(content, str) and content.startswith("ERROR:"):
+                    self._chat(f"\n⚠️ Model error: {content[6:250]}\n", tag="system")
                     break
 
                 assistant_msg = {"role": "assistant", "content": content or ""}
@@ -510,10 +508,10 @@ class AgentState:
                 self.messages.append(assistant_msg)
 
                 if not tool_calls:
-                    self._chat("\n✅ Görev tamamlandı.\n", tag="system")
+                    self._chat("\n✅ Task completed.\n", tag="system")
                     break
 
-                self._log(f"[Adım {step + 1}] {len(tool_calls)} araç çalıştırılıyor...")
+                self._log(f"[Step {step + 1}] Executing {len(tool_calls)} tool(s)...")
                 for tc in tool_calls:
                     if self.cancel_event.is_set():
                         break
@@ -526,7 +524,7 @@ class AgentState:
                     coder_msgs.append(tool_result_msg)
                     self.messages.append(tool_result_msg)
             else:
-                self._chat("\n⚠️ Maksimum adım sayısına ulaşıldı.\n", tag="system")
+                self._chat("\n⚠️ Maximum step count reached.\n", tag="system")
 
         finally:
             self.is_running = False
@@ -551,7 +549,7 @@ class AgentState:
         from ollama_client import chat_with_tools, ensure_model_exists
         ensure_model_exists(self.model, chat_callback=self._chat)
         content, tool_calls = chat_with_tools(self.model, coder_msgs, TOOLS_DEF, self._log)
-        if content and not content.startswith("Hata:"):
+        if content and not content.startswith("ERROR:"):
             parser = StreamingThinkParser(self._chat)
             parser.add_chunk(content + "\n")
             parser.flush()
@@ -577,7 +575,7 @@ class AgentState:
     def _normalized_history(self):
         """Normalize past messages for the current provider (Ollama wants dict
         arguments; OpenAI-compatible APIs want JSON strings + ids)."""
-        is_local = "Yerel" in self.provider
+        is_local = "Local" in self.provider
         normalized = []
         for msg in self.messages:
             new_msg = dict(msg)

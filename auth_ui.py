@@ -37,18 +37,18 @@ class AuthFrame(ctk.CTkFrame):
             text_color=PRIMARY_COLOR
         ).pack(pady=(0, 6))
         ctk.CTkLabel(
-            inner, text="API anahtarlarınızı cihazlar arası eşitlemek için giriş yapın",
+            inner, text="Sign in to sync your API keys across devices",
             font=(FONT_FAMILY, 12), text_color=TEXT_SECONDARY
         ).pack(pady=(0, 26))
 
         self.entry_email = ctk.CTkEntry(
-            inner, placeholder_text="E-posta", width=280, height=42,
+            inner, placeholder_text="Email", width=280, height=42,
             fg_color=SURFACE_COLOR, border_color=BORDER_COLOR, corner_radius=8
         )
         self.entry_email.pack(pady=6)
 
         self.entry_password = ctk.CTkEntry(
-            inner, placeholder_text="Şifre", show="•", width=280, height=42,
+            inner, placeholder_text="Password", show="•", width=280, height=42,
             fg_color=SURFACE_COLOR, border_color=BORDER_COLOR, corner_radius=8
         )
         self.entry_password.pack(pady=6)
@@ -61,14 +61,14 @@ class AuthFrame(ctk.CTkFrame):
         self.lbl_msg.pack(pady=6)
 
         self.btn_login = ctk.CTkButton(
-            inner, text="Giriş Yap", width=280, height=42, corner_radius=8,
+            inner, text="Sign In", width=280, height=42, corner_radius=8,
             fg_color=PRIMARY_COLOR, hover_color=PRIMARY_HOVER, text_color="#0F1011",
             font=(FONT_FAMILY, 14, "bold"), command=self.do_login
         )
         self.btn_login.pack(pady=(8, 4))
 
         self.btn_register = ctk.CTkButton(
-            inner, text="Kayıt Ol", width=280, height=42, corner_radius=8,
+            inner, text="Sign Up", width=280, height=42, corner_radius=8,
             fg_color="transparent", hover_color=SURFACE_COLOR,
             border_width=1, border_color=BORDER_COLOR, text_color=TEXT_PRIMARY,
             font=(FONT_FAMILY, 13), command=self.do_register
@@ -76,7 +76,7 @@ class AuthFrame(ctk.CTkFrame):
         self.btn_register.pack(pady=4)
 
         self.btn_skip = ctk.CTkButton(
-            inner, text="Misafir olarak devam et →", width=280, height=38,
+            inner, text="Continue as guest →", width=280, height=38,
             fg_color="transparent", hover_color=SURFACE_COLOR,
             text_color=TEXT_SECONDARY, font=(FONT_FAMILY, 12),
             command=self._finish
@@ -90,7 +90,7 @@ class AuthFrame(ctk.CTkFrame):
         token = load_config().get("refresh_token")
         if not token:
             return
-        self._show_msg("Oturum geri yükleniyor...", SUCCESS_COLOR)
+        self._show_msg("Restoring session...", SUCCESS_COLOR)
 
         def _run():
             ok = db.restore_session(token)
@@ -108,9 +108,9 @@ class AuthFrame(ctk.CTkFrame):
         email = self.entry_email.get().strip()
         pwd = self.entry_password.get()
         if not email or not pwd:
-            self._show_msg("E-posta ve şifre gerekli.", ERROR_COLOR)
+            self._show_msg("Email and password are required.", ERROR_COLOR)
             return
-        self.btn_login.configure(state="disabled", text="Bekleyin...")
+        self.btn_login.configure(state="disabled", text="Please wait...")
 
         def _run():
             success, msg = db.login(email, pwd)
@@ -120,8 +120,8 @@ class AuthFrame(ctk.CTkFrame):
                     update_config(refresh_token=token)
                 self.after(0, self._finish)
             else:
-                self.after(0, lambda: self._show_msg(f"Hata: {msg}", ERROR_COLOR))
-                self.after(0, lambda: self.btn_login.configure(state="normal", text="Giriş Yap"))
+                self.after(0, lambda: self._show_msg(f"Error: {msg}", ERROR_COLOR))
+                self.after(0, lambda: self.btn_login.configure(state="normal", text="Sign In"))
 
         threading.Thread(target=_run, daemon=True).start()
 
@@ -129,16 +129,16 @@ class AuthFrame(ctk.CTkFrame):
         email = self.entry_email.get().strip()
         pwd = self.entry_password.get()
         if not email or not pwd:
-            self._show_msg("E-posta ve şifre gerekli.", ERROR_COLOR)
+            self._show_msg("Email and password are required.", ERROR_COLOR)
             return
-        self.btn_register.configure(state="disabled", text="Bekleyin...")
+        self.btn_register.configure(state="disabled", text="Please wait...")
 
         def _run():
             success, msg = db.register(email, pwd)
             color = SUCCESS_COLOR if success else ERROR_COLOR
-            text = "Kayıt başarılı! Şimdi giriş yapın." if success else f"Hata: {msg}"
+            text = "Registration successful! Please sign in." if success else f"Error: {msg}"
             self.after(0, lambda: self._show_msg(text, color))
-            self.after(0, lambda: self.btn_register.configure(state="normal", text="Kayıt Ol"))
+            self.after(0, lambda: self.btn_register.configure(state="normal", text="Sign Up"))
 
         threading.Thread(target=_run, daemon=True).start()
 

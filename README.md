@@ -13,8 +13,8 @@ Lesh is an advanced, autonomous AI coding agent designed to run primarily locall
 - 🤖 **Multi-LLM Capabilities**:
   - **Local (Ollama)**: True privacy. Supports `qwen2.5-coder`, `deepseek-r1` and more.
   - **Cloud Providers**: GitHub Models (`models.github.ai`), Google AI Studio (Gemini), Groq Cloud and NVIDIA Build via your own API keys.
-  - **Oto-Pilot**: Routes easy tasks to the local model and hard ones to the cloud automatically.
-  - **Yazılım Ofisi**: 5-expert cross-provider consensus pipeline for complex tasks.
+  - **Auto-Pilot**: Routes easy tasks to the local model and hard ones to the cloud automatically.
+  - **Software Office**: 5-expert cross-provider consensus pipeline for complex tasks.
 - 🛡️ **Command Approval**: Every terminal command the agent wants to run is shown to you in an approval dialog first (optional auto-approve switch). File operations are sandboxed to the selected workspace.
 - 🔐 **Key Storage**: 100% local by default — API keys are encrypted with a per-machine key and stored in `~/.lesh/`. Optional Supabase cloud sync (bring your own instance via `.env`) with Row Level Security. Passwords are never written to disk; sessions restore via refresh tokens.
 - 📁 **Workspace Management**: Bind a folder to the agent. It will read files, execute commands, run code, and git commit & push with one click.
@@ -26,7 +26,7 @@ Lesh is an advanced, autonomous AI coding agent designed to run primarily locall
 2. Extract the folder to a desired location on your computer.
 3. Run `lesh-agent.exe`.
 4. Click **Select Workspace** to bind a project folder.
-5. (Optional) Enter your API tokens for cloud providers or select `Yerel (Ollama)` to run completely locally.
+5. (Optional) Enter your API tokens for cloud providers or select `Local (Ollama)` to run completely locally.
 6. Start coding!
 
 ## Developer Setup
@@ -50,9 +50,9 @@ python smoke_test.py
 
 ### Auto-Release
 
-To create a new release executable and push it to GitHub (reads `GITHUB_TOKEN` from `.env`):
+To publish a new version end-to-end on Windows, double-click `publish.bat` (it force-pushes, builds the exe in an isolated `.venv-build` environment, and publishes the GitHub release). Or run the build/release step directly (reads `GITHUB_TOKEN` from `.env`):
 ```bash
-python release.py 1.5.0
+python release.py 1.5.1
 ```
 
 This will update the internal version, build with PyInstaller, zip the dist folder, create/update the GitHub release and upload the payload.

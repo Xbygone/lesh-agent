@@ -79,21 +79,21 @@ class AppUI(ctk.CTk):
         ).grid(row=0, column=0, sticky="w")
 
         self.lbl_status = ctk.CTkLabel(
-            header, text="● Başlatılıyor...", font=(FONT_FAMILY, 12),
+            header, text="● Starting...", font=(FONT_FAMILY, 12),
             text_color=WARN_COLOR
         )
         self.lbl_status.grid(row=1, column=0, sticky="w", pady=(4, 0))
 
         # ── Mode selector ──
         self.mode_selector = ctk.CTkSegmentedButton(
-            self.sidebar, values=["Standart", "Oto-Pilot", "Yazılım Ofisi"],
+            self.sidebar, values=["Standard", "Auto-Pilot", "Software Office"],
             fg_color=SURFACE_2, selected_color=PRIMARY_COLOR,
             selected_hover_color=PRIMARY_HOVER, unselected_color=SURFACE_2,
             unselected_hover_color=SURFACE_HOVER, text_color=TEXT_PRIMARY,
             font=(FONT_FAMILY, 12, "bold"), corner_radius=8, height=34
         )
         self.mode_selector.grid(row=1, column=0, padx=16, pady=(6, 12), sticky="ew")
-        self.mode_selector.set("Standart")
+        self.mode_selector.set("Standard")
 
         # ── Config card ──
         card = ctk.CTkFrame(
@@ -104,12 +104,12 @@ class AppUI(ctk.CTk):
         card.grid_columnconfigure(0, weight=1)
 
         ctk.CTkLabel(
-            card, text="SAĞLAYICI", font=(FONT_FAMILY, 10, "bold"),
+            card, text="PROVIDER", font=(FONT_FAMILY, 10, "bold"),
             text_color=TEXT_SECONDARY
         ).grid(row=0, column=0, sticky="w", padx=14, pady=(12, 2))
 
         self.combo_provider = ctk.CTkComboBox(
-            card, values=["Yerel (Ollama)"], state="readonly",
+            card, values=["Local (Ollama)"], state="readonly",
             fg_color=SURFACE_COLOR, border_color=BORDER_COLOR,
             button_color=SURFACE_COLOR, button_hover_color=SURFACE_HOVER,
             dropdown_fg_color=SURFACE_2, dropdown_hover_color=SURFACE_HOVER,
@@ -132,20 +132,20 @@ class AppUI(ctk.CTk):
         self.combo_model.grid(row=3, column=0, sticky="ew", padx=14, pady=(0, 8))
 
         self.lbl_token = ctk.CTkLabel(
-            card, text="API ANAHTARI", font=(FONT_FAMILY, 10, "bold"),
+            card, text="API KEY", font=(FONT_FAMILY, 10, "bold"),
             text_color=TEXT_SECONDARY
         )
         self.lbl_token.grid(row=4, column=0, sticky="w", padx=14, pady=(2, 2))
 
         self.entry_pat = ctk.CTkEntry(
-            card, placeholder_text="Token girin...", show="•",
+            card, placeholder_text="Enter token...", show="•",
             fg_color=SURFACE_COLOR, border_color=BORDER_COLOR, height=32,
             corner_radius=6, font=(FONT_FAMILY, 12), text_color=TEXT_PRIMARY
         )
         self.entry_pat.grid(row=5, column=0, sticky="ew", padx=14, pady=(0, 10))
 
         self.btn_select_folder = ctk.CTkButton(
-            card, text="📁 Çalışma Klasörü Seç",
+            card, text="📁 Select Workspace",
             fg_color=SURFACE_COLOR, hover_color=SURFACE_HOVER,
             border_width=1, border_color=BORDER_COLOR,
             text_color=TEXT_PRIMARY, font=(FONT_FAMILY, 12, "bold"),
@@ -165,8 +165,8 @@ class AppUI(ctk.CTk):
         )
         self.tabs.grid(row=3, column=0, padx=16, pady=(0, 8), sticky="nsew")
 
-        tab_files = self.tabs.add("📂 Dosyalar")
-        tab_chats = self.tabs.add("💬 Sohbetler")
+        tab_files = self.tabs.add("📂 Files")
+        tab_chats = self.tabs.add("💬 Chats")
 
         self.tree = ttk.Treeview(tab_files, show="tree", selectmode="browse")
         self.tree.pack(expand=True, fill="both", padx=2, pady=2)
@@ -180,7 +180,7 @@ class AppUI(ctk.CTk):
         bottom.grid_columnconfigure(0, weight=1)
 
         self.switch_auto_approve = ctk.CTkSwitch(
-            bottom, text="Komutları otomatik onayla",
+            bottom, text="Auto-approve commands",
             font=(FONT_FAMILY, 12), text_color=TEXT_SECONDARY,
             progress_color=WARN_COLOR, button_color=TEXT_PRIMARY,
             fg_color=SURFACE_HOVER
@@ -188,7 +188,7 @@ class AppUI(ctk.CTk):
         self.switch_auto_approve.grid(row=0, column=0, sticky="w", pady=(0, 8))
 
         self.btn_update = ctk.CTkButton(
-            bottom, text="Güncellemeleri Denetle",
+            bottom, text="Check for Updates",
             fg_color="transparent", hover_color=SURFACE_HOVER,
             border_width=1, border_color=BORDER_COLOR,
             text_color=TEXT_SECONDARY, font=(FONT_FAMILY, 12),
@@ -211,13 +211,13 @@ class AppUI(ctk.CTk):
         topbar.grid_columnconfigure(0, weight=1)
 
         self.lbl_chat_title = ctk.CTkLabel(
-            topbar, text="Yeni Sohbet", font=(FONT_FAMILY, 15, "bold"),
+            topbar, text="New Chat", font=(FONT_FAMILY, 15, "bold"),
             text_color=TEXT_PRIMARY, anchor="w"
         )
         self.lbl_chat_title.grid(row=0, column=0, sticky="w")
 
         self.btn_stop = ctk.CTkButton(
-            topbar, text="⏹ Durdur", width=90, height=30,
+            topbar, text="⏹ Stop", width=90, height=30,
             fg_color=ERROR_COLOR, hover_color="#F6A9A2", text_color="#0F1011",
             font=(FONT_FAMILY, 12, "bold"), corner_radius=8
         )
@@ -225,7 +225,7 @@ class AppUI(ctk.CTk):
         self.btn_stop.grid_remove()  # only visible while agent runs
 
         self.btn_new_chat = ctk.CTkButton(
-            topbar, text="＋ Yeni Sohbet", width=110, height=30,
+            topbar, text="＋ New Chat", width=110, height=30,
             fg_color="transparent", hover_color=SURFACE_HOVER,
             border_width=1, border_color=BORDER_COLOR,
             text_color=TEXT_PRIMARY, font=(FONT_FAMILY, 12), corner_radius=8
@@ -266,7 +266,7 @@ class AppUI(ctk.CTk):
         self.chat_input.grid(row=0, column=0, sticky="ew", padx=(16, 8), pady=8)
 
         self.btn_send = ctk.CTkButton(
-            bar, text="Gönder ➤", width=104, height=40,
+            bar, text="Send ➤", width=104, height=40,
             fg_color=PRIMARY_COLOR, hover_color=PRIMARY_HOVER,
             text_color="#0F1011", font=(FONT_FAMILY, 13, "bold"),
             corner_radius=10
@@ -274,7 +274,7 @@ class AppUI(ctk.CTk):
         self.btn_send.grid(row=0, column=1, padx=(0, 12))
 
         hint = ctk.CTkLabel(
-            bar, text="Enter: gönder  •  Shift+Enter: yeni satır",
+            bar, text="Enter: send  •  Shift+Enter: new line",
             font=(FONT_FAMILY, 10), text_color=TEXT_SECONDARY
         )
         hint.grid(row=1, column=0, columnspan=2, sticky="w", padx=16, pady=(0, 6))
@@ -299,7 +299,7 @@ class AppUI(ctk.CTk):
         self.inspector_tabs.grid(row=0, column=0, sticky="nsew", padx=12, pady=(8, 4))
 
         tab_diff = self.inspector_tabs.add("Git Diff")
-        tab_log = self.inspector_tabs.add("Ajan Logu")
+        tab_log = self.inspector_tabs.add("Agent Log")
 
         # ── Diff tab ──
         tab_diff.grid_rowconfigure(1, weight=1)
@@ -310,12 +310,12 @@ class AppUI(ctk.CTk):
         diff_toolbar.grid_columnconfigure(0, weight=1)
 
         ctk.CTkLabel(
-            diff_toolbar, text="Kaydedilmemiş değişiklikler",
+            diff_toolbar, text="Uncommitted changes",
             font=(FONT_FAMILY, 11), text_color=TEXT_SECONDARY
         ).grid(row=0, column=0, sticky="w", padx=4)
 
         self.btn_refresh_diff = ctk.CTkButton(
-            diff_toolbar, text="🔄 Yenile", width=76, height=26,
+            diff_toolbar, text="🔄 Refresh", width=76, height=26,
             fg_color="transparent", border_width=1, corner_radius=6,
             border_color=BORDER_COLOR, text_color=TEXT_PRIMARY,
             hover_color=SURFACE_HOVER, font=(FONT_FAMILY, 11)
@@ -351,7 +351,7 @@ class AppUI(ctk.CTk):
         push_bar.grid_columnconfigure(0, weight=1)
 
         self.commit_msg_input = ctk.CTkEntry(
-            push_bar, placeholder_text="Commit mesajı...",
+            push_bar, placeholder_text="Commit message...",
             fg_color=SURFACE_2, border_color=BORDER_COLOR,
             height=36, corner_radius=8, font=(FONT_FAMILY, 12),
             text_color=TEXT_PRIMARY
@@ -387,13 +387,13 @@ class AppUI(ctk.CTk):
     def set_busy(self, busy: bool):
         """Reactive state: toggles Send/Stop and status label."""
         if busy:
-            self.btn_send.configure(state="disabled", text="⏳ Çalışıyor")
+            self.btn_send.configure(state="disabled", text="⏳ Working")
             self.btn_stop.grid()
-            self.lbl_status.configure(text="● Ajan çalışıyor...", text_color=WARN_COLOR)
+            self.lbl_status.configure(text="● Agent running...", text_color=WARN_COLOR)
         else:
-            self.btn_send.configure(state="normal", text="Gönder ➤")
+            self.btn_send.configure(state="normal", text="Send ➤")
             self.btn_stop.grid_remove()
-            self.lbl_status.configure(text="● Hazır", text_color=SUCCESS_COLOR)
+            self.lbl_status.configure(text="● Ready", text_color=SUCCESS_COLOR)
 
     def append_chat(self, text, tag=None):
         self.chat_display.configure(state="normal")
@@ -470,13 +470,13 @@ class AppUI(ctk.CTk):
             on_result(value)
 
         ctk.CTkButton(
-            btns, text="✔ Onayla ve Çalıştır", height=38, corner_radius=8,
+            btns, text="✔ Approve & Run", height=38, corner_radius=8,
             fg_color=SUCCESS_COLOR, hover_color="#A3D9B1", text_color="#0F1011",
             font=(FONT_FAMILY, 13, "bold"), command=lambda: _decide(True)
         ).grid(row=0, column=0, sticky="ew", padx=(0, 8))
 
         ctk.CTkButton(
-            btns, text="✖ Reddet", height=38, corner_radius=8,
+            btns, text="✖ Reject", height=38, corner_radius=8,
             fg_color=ERROR_COLOR, hover_color="#F6A9A2", text_color="#0F1011",
             font=(FONT_FAMILY, 13, "bold"), command=lambda: _decide(False)
         ).grid(row=0, column=1, sticky="ew", padx=(8, 0))

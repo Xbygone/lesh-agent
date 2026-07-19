@@ -1,6 +1,7 @@
-"""Verify the GitHub release state (ASCII-only output, Turkish-console safe)."""
+"""Verify the GitHub release state (ASCII-only output, safe on any console)."""
 
 import os
+import re
 import sys
 
 import requests
@@ -24,6 +25,19 @@ def load_env():
                     os.environ.setdefault(key.strip(), val.strip().strip("\"'"))
 
 
+def current_version_tag():
+    """Default tag = CURRENT_VERSION from updater.py."""
+    try:
+        path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "updater.py")
+        with open(path, "r", encoding="utf-8") as f:
+            m = re.search(r'CURRENT_VERSION\s*=\s*"([^"]+)"', f.read())
+        if m:
+            return "v" + m.group(1)
+    except OSError:
+        pass
+    return "v1.5.1"
+
+
 def main():
     load_env()
     token = os.environ.get("GITHUB_TOKEN", "")
@@ -31,7 +45,7 @@ def main():
     if token:
         headers["Authorization"] = f"Bearer {token}"
 
-    tag = sys.argv[1] if len(sys.argv) > 1 else "v1.5.0"
+    tag = sys.argv[1] if len(sys.argv) > 1 else current_version_tag()
 
     r = requests.get(f"https://api.github.com/repos/{REPO}/releases/tags/{tag}", headers=headers, timeout=15)
     print(f"[release/{tag}] HTTP {r.status_code}")
@@ -45,7 +59,7 @@ def main():
         for a in assets:
             print(f"    - {a.get('name')}  {a.get('size'):,} bytes  state={a.get('state')}  downloads={a.get('download_count')}")
     else:
-        print("  RELEASE BULUNAMADI!")
+        print("  RELEASE NOT FOUND!")
 
     r2 = requests.get(f"https://api.github.com/repos/{REPO}/releases/latest", headers=headers, timeout=15)
     if r2.status_code == 200:

@@ -1,34 +1,41 @@
-# Lesh Agent v1.5.0 — Güvenlik ve Yeniden Yazım Sürümü
+# Lesh Agent v1.5.1 — Security & Rewrite Release
 
-## 🛡️ Güvenlik (kritik)
+> v1.5.1 supersedes v1.5.0: it fixes a packaging issue (missing bundled dependencies in the exe) and completes the full English localization of the app.
 
-- Kaynak koda gömülü tüm sırlar (Supabase URL/anahtarı, Fernet şifreleme anahtarı) kaldırıldı. Uygulama artık varsayılan olarak **%100 yerel** çalışır; API anahtarları makineye özel üretilen bir anahtarla şifrelenip `~/.lesh/` altında saklanır.
-- Kullanıcı şifresi artık **asla diske yazılmıyor**; otomatik giriş Supabase refresh token ile yapılıyor.
-- Path traversal açığı kapatıldı (`startswith` yerine `realpath` + `commonpath`; kardeş-önek klasör ve symlink kaçışları engellendi).
-- Ajanın çalıştırmak istediği **her terminal komutu artık onay penceresinden geçiyor** (isteğe bağlı otomatik onay anahtarı ile). Açıkça yıkıcı komutlar her durumda engelli.
-- Terminal komutlarına zaman aşımı ve çıktı sınırı eklendi.
-- Git geçmişi sızmış anahtarlardan tamamen temizlendi.
+## 🌍 Fully English
 
-## 🐛 Hata Düzeltmeleri
+The entire interface, agent prompts, logs and documentation are now in English. The agent replies in whatever language you write in.
 
-- Uygulamanın hiç açılmamasına yol açan eksik bağımlılıklar (`duckduckgo-search`, `beautifulsoup4`) requirements.txt'ye eklendi.
-- Paketlenmiş exe'nin açılışta kendini yeniden başlatmasına yol açan pip özyineleme hatası giderildi.
-- Kaynaktan çalıştırırken otomatik güncelleyicinin git çalışma ağacının üzerine yazma riski kaldırıldı (otomatik güncelleme artık sadece exe'de).
-- Her tuş vuruşunda Supabase'e istek atılması (UI donması) giderildi; anahtar kaydı artık odak kaybında yapılıyor.
-- "Yazılım Ofisi" modunun sohbet geçmişini silmesi düzeltildi.
-- GitHub Models eski (kapatılan) endpoint'ten yenisine taşındı: `models.github.ai/inference` + yayıncı önekli model ID'leri.
-- Var olmayan `diff_textbox` referansı, grid çakışmaları ve durum etiketinin model kartına binmesi düzeltildi.
-- Ollama model adları düzeltildi (ör. `phi4-mini`), model katalogları güncellendi (Gemini 2.5, Groq güncel modelleri).
-- Commit & Push artık her zaman GitHub PAT'ını kullanıyor (seçili sağlayıcının anahtarını değil).
+## 🛡️ Security (Critical)
 
-## ✨ Yeni Arayüz
+- Removed all embedded secrets (Supabase URL/key, Fernet encryption key) from the source code. The app now runs **100% locally by default**; API keys are encrypted with a per-machine key generated on first run and stored under `~/.lesh/`.
+- Passwords are **never written to disk** anymore; auto-login now uses Supabase refresh tokens.
+- Fixed a path traversal vulnerability (`startswith` replaced with `realpath` + `commonpath`; sibling-prefix folders and symlink escapes are now blocked).
+- Every terminal command the agent wants to run now goes through a **user approval dialog** (with an optional auto-approve switch). Obviously destructive commands are always blocked.
+- Added timeouts and output limits to terminal commands.
+- Git history has been fully scrubbed of leaked credentials.
 
-- Arayüz sıfırdan yazıldı: çakışmasız responsive yerleşim, Diff/Log sekmeli denetim paneli, renklendirilmiş git diff (+/-), durum göstergeleri.
-- Ajan çalışırken **Durdur** butonu, tek tıkla **Yeni Sohbet**, Enter/Shift+Enter desteği.
-- Komut onay penceresi ve "Komutları otomatik onayla" anahtarı.
-- Sohbet akışında Sen/Ajan rozetleri, düşünme (`<think>`) vurgusu, araç çağrısı vurguları.
+## 🐛 Bug Fixes
 
-## ⚠️ Yükseltme Notları
+- Fixed the packaged exe crashing on startup (`ModuleNotFoundError: customtkinter`) — builds now run in a clean, dedicated virtual environment with all dependencies bundled.
+- Added missing dependencies (`duckduckgo-search`, `beautifulsoup4`) that prevented the app from starting from source.
+- Fixed a pip recursion bug that made the packaged exe relaunch itself on startup.
+- Auto-updater no longer runs when launched from source (it could overwrite your git working tree). It now only runs in the packaged exe.
+- Fixed UI freezes caused by a network request on every keystroke; API keys are now saved on focus loss.
+- Fixed "Software Office" mode wiping the chat history.
+- Migrated GitHub Models to the new endpoint (`models.github.ai/inference`) with publisher-prefixed model IDs — the old endpoint was deprecated.
+- Fixed a phantom widget reference, grid overlaps, and the status label rendering on top of the model card.
+- Corrected Ollama model names (e.g. `phi4-mini`) and refreshed all model catalogs (Gemini 2.5, current Groq models).
+- Commit & Push now always uses your GitHub PAT instead of whichever provider key happened to be selected.
 
-- Eski sürümlerin kaydettiği şifreli API anahtarları (sızmış ortak anahtarla şifrelenmişti) geçersizdir; anahtarlarınızı bir kez yeniden girin.
-- Supabase bulut senkronizasyonu isteğe bağlıdır; kendi örneğinizi `.env` ile bağlayabilirsiniz (`.env.example`'a bakın).
+## ✨ New UI
+
+- Interface rebuilt from scratch: overlap-free responsive layout, tabbed Diff/Log inspector, colorized git diff (+/-), live status indicators.
+- **Stop** button while the agent is running, one-click **New Chat**, Enter / Shift+Enter support.
+- Command approval dialog and an "Auto-approve commands" switch.
+- You/Agent badges in the chat stream, highlighted `<think>` reasoning and tool calls.
+
+## ⚠️ Upgrade Notes
+
+- API keys saved by older versions were encrypted with a compromised shared key and are now invalid — please re-enter your keys once.
+- Supabase cloud sync is optional; you can connect your own instance via `.env` (see `.env.example`).

@@ -39,3 +39,4 @@ _temp_update_/
 crash_log.txt
 publish_log.txt
 verify_log.txt
+.venv-build/

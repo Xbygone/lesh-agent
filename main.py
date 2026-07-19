@@ -22,14 +22,14 @@ def ensure_dependencies():
         except ImportError:
             missing.append(pip_name)
     if missing:
-        print(f"[SYSTEM] Eksik paketler kuruluyor: {', '.join(missing)}")
+        print(f"[SYSTEM] Installing missing packages: {', '.join(missing)}")
         try:
             subprocess.check_call(
                 [sys.executable, "-m", "pip", "install", *missing, "--disable-pip-version-check"]
             )
         except Exception as e:
-            print(f"[ERROR] Paket kurulumu başarısız: {e}\n"
-                  f"Lütfen elle kurun: pip install {' '.join(missing)}")
+            print(f"[ERROR] Package installation failed: {e}\n"
+                  f"Please install manually: pip install {' '.join(missing)}")
 
 
 ensure_dependencies()
@@ -49,7 +49,7 @@ from tools import read_file
 from updater import check_for_updates
 
 MODEL_CATALOG = {
-    "Yerel (Ollama)": [
+    "Local (Ollama)": [
         "qwen2.5-coder:7b", "qwen2.5-coder:1.5b", "deepseek-r1:7b",
         "llama3.2:3b", "phi4-mini",
     ],
@@ -77,6 +77,8 @@ TOKEN_LABELS = {
     "Groq Cloud": "GROQ API KEY",
     "NVIDIA Build": "NVIDIA API KEY",
 }
+
+CROSS_PLATFORM = "Cross-Platform (NVIDIA/GitHub/Google)"
 
 
 class MainApp:
@@ -133,10 +135,10 @@ class MainApp:
         # Auto-update only makes sense for the packaged exe. Running the
         # updater from source would overwrite the git working tree!
         if auto and not getattr(sys, "frozen", False):
-            self.ui.btn_update.configure(text="Güncellemeleri Denetle")
+            self.ui.btn_update.configure(text="Check for Updates")
             return
 
-        self.ui.btn_update.configure(state="disabled", text="Denetleniyor...")
+        self.ui.btn_update.configure(state="disabled", text="Checking...")
 
         def status_cb(msg):
             self.ui.after(0, lambda: self.ui.btn_update.configure(text=msg[:34]))
@@ -144,7 +146,7 @@ class MainApp:
 
         def complete_cb(success):
             if success and getattr(sys, "frozen", False):
-                self.ui.after(0, lambda: self.ui.btn_update.configure(text="Yeniden başlatılıyor..."))
+                self.ui.after(0, lambda: self.ui.btn_update.configure(text="Restarting..."))
                 try:
                     subprocess.Popen("start update.bat", shell=True)
                     os._exit(0)
@@ -152,16 +154,16 @@ class MainApp:
                     pass
             else:
                 self.ui.after(3000, lambda: self.ui.btn_update.configure(
-                    state="normal", text="Güncellemeleri Denetle"))
+                    state="normal", text="Check for Updates"))
 
         check_for_updates(status_cb, complete_cb)
 
     def _check_ollama(self):
-        self._set_status("● Ollama denetleniyor...", "#FDD663")
+        self._set_status("● Checking Ollama...", "#FDD663")
         if check_ollama_status():
-            self._set_status("● Hazır", "#81C995")
+            self._set_status("● Ready", "#81C995")
         else:
-            self._set_status("● Ollama bulunamadı (yerel mod devre dışı)", "#F28B82")
+            self._set_status("● Ollama not found (local mode disabled)", "#F28B82")
 
     def _set_status(self, text, color):
         self.ui.after(0, lambda: self.ui.lbl_status.configure(text=text, text_color=color))
@@ -170,29 +172,29 @@ class MainApp:
     # MODE / PROVIDER / MODEL
     # ─────────────────────────────────────────────
     def on_mode_change(self, mode):
-        if mode == "Standart":
+        if mode == "Standard":
             self.ui.combo_provider.configure(values=list(MODEL_CATALOG.keys()), state="readonly")
             self.ui.combo_model.configure(state="normal")
             if self.ui.combo_provider.get() not in MODEL_CATALOG:
-                self.ui.combo_provider.set("Yerel (Ollama)")
+                self.ui.combo_provider.set("Local (Ollama)")
             self.on_provider_change(self.ui.combo_provider.get())
-        elif mode == "Oto-Pilot":
-            cloud = [p for p in MODEL_CATALOG if p != "Yerel (Ollama)"]
+        elif mode == "Auto-Pilot":
+            cloud = [p for p in MODEL_CATALOG if p != "Local (Ollama)"]
             self.ui.combo_provider.configure(values=cloud, state="readonly")
             if self.ui.combo_provider.get() not in cloud:
                 self.ui.combo_provider.set("GitHub Models")
-            self.ui.combo_model.configure(values=["Dinamik Yönlendirme (Kolay→Yerel, Zor→Bulut)"])
-            self.ui.combo_model.set("Dinamik Yönlendirme (Kolay→Yerel, Zor→Bulut)")
+            self.ui.combo_model.configure(values=["Dynamic Routing (Easy→Local, Hard→Cloud)"])
+            self.ui.combo_model.set("Dynamic Routing (Easy→Local, Hard→Cloud)")
             self.ui.combo_model.configure(state="disabled")
             self.on_provider_change(self.ui.combo_provider.get(), mode_override=mode)
-        elif mode == "Yazılım Ofisi":
-            self.ui.combo_provider.configure(values=["Çapraz Platform (NVIDIA/GitHub/Google)"])
-            self.ui.combo_provider.set("Çapraz Platform (NVIDIA/GitHub/Google)")
+        elif mode == "Software Office":
+            self.ui.combo_provider.configure(values=[CROSS_PLATFORM])
+            self.ui.combo_provider.set(CROSS_PLATFORM)
             self.ui.combo_provider.configure(state="disabled")
             self.ui.combo_model.configure(values=["5-Agent Consensus"])
             self.ui.combo_model.set("5-Agent Consensus")
             self.ui.combo_model.configure(state="disabled")
-            self.on_provider_change("Çapraz Platform (NVIDIA/GitHub/Google)", mode_override=mode)
+            self.on_provider_change(CROSS_PLATFORM, mode_override=mode)
 
         if self.agent:
             self.agent.run_mode = mode
@@ -214,19 +216,19 @@ class MainApp:
 
         threading.Thread(target=_load_key, daemon=True).start()
 
-        if "Yerel" in choice:
+        if "Local" in choice:
             self.ui.lbl_token.grid_remove()
             self.ui.entry_pat.grid_remove()
-        elif "Çapraz Platform" in choice:
-            self.ui.lbl_token.configure(text="STANDART MODDAN API ANAHTARLARINI GİRİN")
+        elif "Cross-Platform" in choice:
+            self.ui.lbl_token.configure(text="ENTER API KEYS FROM STANDARD MODE")
             self.ui.lbl_token.grid()
             self.ui.entry_pat.grid_remove()
         else:
-            self.ui.lbl_token.configure(text=TOKEN_LABELS.get(choice, "API ANAHTARI"))
+            self.ui.lbl_token.configure(text=TOKEN_LABELS.get(choice, "API KEY"))
             self.ui.lbl_token.grid()
             self.ui.entry_pat.grid()
 
-        if mode == "Standart" and choice in MODEL_CATALOG:
+        if mode == "Standard" and choice in MODEL_CATALOG:
             models = MODEL_CATALOG[choice]
             self.ui.combo_model.configure(values=models, state="normal")
             self.ui.combo_model.set(models[0])
@@ -251,7 +253,7 @@ class MainApp:
         self._token_dirty = False
         provider = self.ui.combo_provider.get()
         token = self.ui.entry_pat.get().strip()
-        if not token or provider not in MODEL_CATALOG or "Yerel" in provider:
+        if not token or provider not in MODEL_CATALOG or "Local" in provider:
             return
 
         def _save():
@@ -263,7 +265,7 @@ class MainApp:
     # WORKSPACE
     # ─────────────────────────────────────────────
     def select_folder(self):
-        path = filedialog.askdirectory(title="Çalışma Klasörü Seç")
+        path = filedialog.askdirectory(title="Select Workspace")
         if not path:
             return
         update_config(last_workspace=path)
@@ -276,7 +278,7 @@ class MainApp:
         self._populate_chats()
         self.refresh_diff()
         self._make_agent()
-        self._log(f"Çalışma dizini: {path}")
+        self._log(f"Workspace: {path}")
         self.start_new_session()
 
     def _make_agent(self):
@@ -328,7 +330,7 @@ class MainApp:
                 try:
                     for name in sorted(os.listdir(current_path)):
                         if name in (".git", "venv", ".venv", "__pycache__", "node_modules",
-                                    ".lesh", "dist", "build", ".idea", ".vscode"):
+                                    ".lesh", "dist", "build", ".idea", ".vscode", ".venv-build"):
                             continue
                         full = os.path.join(current_path, name)
                         if os.path.isdir(full):
@@ -377,14 +379,13 @@ class MainApp:
         if read_res.get("success"):
             self.agent.set_active_file(rel_path, read_res["content"])
         else:
-            self._log(f"Dosya okunamadı: {rel_path}")
+            self._log(f"Could not read file: {rel_path}")
 
     # ─────────────────────────────────────────────
     # SESSIONS
     # ─────────────────────────────────────────────
     def get_sessions_dir(self):
-        base = self.workspace_path or os.path.expanduser("~")
-        d = os.path.join(base, ".lesh", "sessions") if self.workspace_path \
+        d = os.path.join(self.workspace_path, ".lesh", "sessions") if self.workspace_path \
             else os.path.expanduser("~/.lesh/sessions")
         os.makedirs(d, exist_ok=True)
         return d
@@ -395,16 +396,16 @@ class MainApp:
             self.agent.messages = []
             self.agent.active_file_context = None
         self.ui.clear_chat()
-        self.ui.lbl_chat_title.configure(text="Yeni Sohbet")
-        self.ui.append_chat("[SYSTEM] Yeni sohbet başlatıldı.\n", tag="system")
+        self.ui.lbl_chat_title.configure(text="New Chat")
+        self.ui.append_chat("[SYSTEM] New chat started.\n", tag="system")
 
     def _populate_chats(self):
         for item in self.ui.chat_list.get_children():
             self.ui.chat_list.delete(item)
 
         sessions_dir = self.get_sessions_dir()
-        root = self.ui.chat_list.insert("", "end", text="Sohbetler", open=True)
-        self.ui.chat_list.insert(root, "end", text="＋ Yeni Sohbet", tags=("new",))
+        root = self.ui.chat_list.insert("", "end", text="Chats", open=True)
+        self.ui.chat_list.insert(root, "end", text="＋ New Chat", tags=("new",))
 
         try:
             files = sorted(os.listdir(sessions_dir), reverse=True)
@@ -425,7 +426,7 @@ class MainApp:
                     pass
                 self.ui.chat_list.insert(root, "end", text=title, values=(session_id,))
         except OSError as e:
-            self._log(f"Sohbet listesi hatası: {e}")
+            self._log(f"Chat list error: {e}")
 
     def on_chat_select(self, event):
         selected = self.ui.chat_list.selection()
@@ -441,7 +442,7 @@ class MainApp:
         self.current_session_id = values[0]
         self._load_session(values[0], self.ui.chat_list.item(item, "text"))
 
-    def _load_session(self, session_id, title="Sohbet"):
+    def _load_session(self, session_id, title="Chat"):
         fpath = os.path.join(self.get_sessions_dir(), f"{session_id}.json")
         if not os.path.exists(fpath):
             return
@@ -449,7 +450,7 @@ class MainApp:
             with open(fpath, "r", encoding="utf-8") as f:
                 history = json.load(f)
         except (OSError, ValueError) as e:
-            self._log(f"Oturum yüklenemedi: {e}")
+            self._log(f"Could not load session: {e}")
             return
 
         if not self.agent:
@@ -460,13 +461,13 @@ class MainApp:
         for msg in history:
             r, c = msg.get("role"), msg.get("content", "")
             if r == "user":
-                self.ui.append_chat("\n[Sen]\n", tag="user_chip")
+                self.ui.append_chat("\n[You]\n", tag="user_chip")
                 self.ui.append_chat(f"{c}\n", tag="user")
             elif r == "assistant" and c:
-                self.ui.append_chat("\n[Ajan]\n", tag="agent_chip")
+                self.ui.append_chat("\n[Agent]\n", tag="agent_chip")
                 self.ui.append_chat(f"{c}\n")
             elif r == "tool":
-                self.ui.append_chat(f"🛠 {msg.get('name', 'araç')} çalıştı\n", tag="tool_ok")
+                self.ui.append_chat(f"🛠 {msg.get('name', 'tool')} executed\n", tag="tool_ok")
 
     def _save_session(self):
         try:
@@ -475,7 +476,7 @@ class MainApp:
                 with open(fpath, "w", encoding="utf-8") as f:
                     json.dump(self.agent.messages, f, ensure_ascii=False, indent=2)
         except OSError as e:
-            self._log(f"[UYARI] Oturum kaydedilemedi: {e}")
+            self._log(f"[WARNING] Could not save session: {e}")
 
     # ─────────────────────────────────────────────
     # SEND / STOP
@@ -487,13 +488,13 @@ class MainApp:
     def stop_agent(self):
         if self.agent:
             self.agent.cancel()
-            self._log("[SYSTEM] Durdurma istendi; mevcut adım bitince duracak.")
+            self._log("[SYSTEM] Stop requested; will halt after the current step.")
 
     def send_message(self):
         if self.agent and self.agent.is_running:
             return
         if not self.workspace_path:
-            self.ui.append_chat("Önce bir çalışma klasörü seçin.\n", tag="error")
+            self.ui.append_chat("Select a workspace folder first.\n", tag="error")
             return
 
         text = self.ui.chat_input.get("1.0", "end").strip()
@@ -502,22 +503,22 @@ class MainApp:
 
         provider = self.ui.combo_provider.get()
         token = self.ui.entry_pat.get().strip()
-        needs_token = ("Yerel" not in provider) and ("Çapraz" not in provider)
+        needs_token = ("Local" not in provider) and ("Cross-Platform" not in provider)
         if needs_token and not token:
-            self.ui.append_chat(f"{provider} için API anahtarı gerekli.\n", tag="error")
+            self.ui.append_chat(f"{provider} requires an API key.\n", tag="error")
             return
 
         self.save_token()
 
         self.ui.chat_input.delete("1.0", "end")
-        self.ui.append_chat("\n[Sen]\n", tag="user_chip")
+        self.ui.append_chat("\n[You]\n", tag="user_chip")
         self.ui.append_chat(f"{text}\n\n", tag="user")
-        self.ui.append_chat("[Ajan]\n", tag="agent_chip")
+        self.ui.append_chat("[Agent]\n", tag="agent_chip")
 
         if not self.agent:
             self._make_agent()
         self.agent.provider = provider
-        if self.ui.mode_selector.get() == "Standart":
+        if self.ui.mode_selector.get() == "Standard":
             self.agent.model = self.ui.combo_model.get()
         self.agent.token = token
         self.agent.run_mode = self.ui.mode_selector.get()
@@ -534,9 +535,9 @@ class MainApp:
                 self.agent.run()
             except Exception as e:
                 import traceback
-                self._log(f"[KRİTİK] Ajan çöktü: {e}")
+                self._log(f"[CRITICAL] Agent crashed: {e}")
                 self._log(traceback.format_exc())
-                self._chat_cb(f"\n[SİSTEM HATASI] {e}\n", tag="error")
+                self._chat_cb(f"\n[SYSTEM ERROR] {e}\n", tag="error")
             finally:
                 self._flush()
                 self._save_session()
@@ -577,11 +578,11 @@ class MainApp:
     # ─────────────────────────────────────────────
     def refresh_diff(self):
         if not self.workspace_path:
-            self.ui.set_diff("Çalışma klasörü seçilmedi.")
+            self.ui.set_diff("No workspace selected.")
             return
 
         def _bg():
-            diff = get_diff(self.workspace_path) or "Değişiklik yok."
+            diff = get_diff(self.workspace_path) or "No changes detected."
             self.ui.after(0, lambda: self.ui.set_diff(diff))
         threading.Thread(target=_bg, daemon=True).start()
 
@@ -590,7 +591,7 @@ class MainApp:
             return
         msg = self.ui.commit_msg_input.get().strip() or "AI: Autonomous commit"
 
-        self.ui.btn_git_push.configure(state="disabled", text="Gönderiliyor...")
+        self.ui.btn_git_push.configure(state="disabled", text="Pushing...")
 
         def _run():
             # Prefer the stored GitHub PAT; fall back to the visible field only
@@ -603,7 +604,7 @@ class MainApp:
             success, log = commit_and_push(self.workspace_path, msg, pat_token=token or None)
             self.ui.after(0, lambda: self.ui.append_log(log))
             self.ui.after(0, self.refresh_diff)
-            label = "✔ Gönderildi" if success else "✖ Hata!"
+            label = "✔ Pushed" if success else "✖ Error!"
             self.ui.after(0, lambda: self.ui.btn_git_push.configure(state="normal", text=label))
             self.ui.after(3500, lambda: self.ui.btn_git_push.configure(text="Commit & Push"))
             if success:

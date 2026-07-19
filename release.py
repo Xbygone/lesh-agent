@@ -15,7 +15,7 @@ import subprocess
 
 import requests
 
-# Windows Türkçe konsolda (cp1254) Unicode print hatalarını önle
+# Prevent Unicode print errors on non-UTF8 Windows consoles
 try:
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
     sys.stderr.reconfigure(encoding="utf-8", errors="replace")
@@ -46,11 +46,11 @@ def update_version_in_updater(new_version):
     )
     with open("updater.py", "w", encoding="utf-8") as f:
         f.write(content)
-    print(f"[+] updater.py sürümü {new_version} olarak güncellendi.")
+    print(f"[+] updater.py version set to {new_version}.")
 
 
 def run_build():
-    print("[+] PyInstaller çalıştırılıyor...")
+    print("[+] Running PyInstaller...")
     subprocess.run(
         [
             sys.executable, "-m", "PyInstaller",
@@ -61,11 +61,11 @@ def run_build():
         ],
         check=True,
     )
-    print("[+] Build tamamlandı.")
+    print("[+] Build complete.")
 
 
 def create_zip():
-    print("[+] dist/lesh-agent zipleniyor...")
+    print("[+] Zipping dist/lesh-agent...")
     dist_dir = os.path.join("dist", "lesh-agent")
     zip_path = "lesh-agent.zip"
     if os.path.exists(zip_path):
@@ -75,7 +75,7 @@ def create_zip():
             for file in files:
                 file_path = os.path.join(root, file)
                 zipf.write(file_path, os.path.relpath(file_path, "dist"))
-    print(f"[+] {zip_path} oluşturuldu.")
+    print(f"[+] {zip_path} created.")
     return zip_path
 
 
@@ -89,7 +89,7 @@ def get_or_create_release(token, version):
 
     resp = requests.get(f"https://api.github.com/repos/{REPO}/releases/tags/{tag}", headers=headers)
     if resp.status_code == 200:
-        print(f"[+] Mevcut release bulundu: {tag}")
+        print(f"[+] Existing release found: {tag}")
         return resp.json(), headers
 
     body = f"Lesh Agent v{version}"
@@ -108,7 +108,7 @@ def get_or_create_release(token, version):
     }
     resp = requests.post(f"https://api.github.com/repos/{REPO}/releases", json=release_data, headers=headers)
     if resp.status_code != 201:
-        print("[-] Release oluşturulamadı:", resp.text)
+        print("[-] Could not create release:", resp.text)
         sys.exit(1)
     return resp.json(), headers
 
@@ -123,31 +123,31 @@ def upload_asset(release_info, headers, zip_path):
                 f"https://api.github.com/repos/{REPO}/releases/assets/{asset['id']}",
                 headers=headers,
             )
-            print("[+] Eski zip asset silindi.")
+            print("[+] Old zip asset deleted.")
 
-    print(f"[+] {zip_path} yükleniyor (dosya boyutuna göre 1-2 dk sürebilir)...")
+    print(f"[+] Uploading {zip_path} (may take 1-2 minutes depending on size)...")
     with open(zip_path, "rb") as f:
         upload_headers = dict(headers)
         upload_headers["Content-Type"] = "application/zip"
         resp = requests.post(f"{upload_url}?name=lesh-agent.zip", headers=upload_headers, data=f)
 
     if resp.status_code == 201:
-        print(f"[OK] Yayinlandi: {release_info['html_url']}")
+        print(f"[OK] Published: {release_info['html_url']}")
     else:
-        print("[-] Yükleme hatası:", resp.text)
+        print("[-] Upload error:", resp.text)
         sys.exit(1)
 
 
 if __name__ == "__main__":
     if len(sys.argv) < 2:
-        print("Kullanım: python release.py <YENİ_SÜRÜM> [GITHUB_TOKEN]")
+        print("Usage: python release.py <NEW_VERSION> [GITHUB_TOKEN]")
         sys.exit(1)
 
     new_version = sys.argv[1].lstrip("v")
     load_env()
     token = sys.argv[2] if len(sys.argv) > 2 else os.environ.get("GITHUB_TOKEN", "")
     if not token:
-        print("GITHUB_TOKEN bulunamadı (.env dosyasına ekleyin veya argüman geçin).")
+        print("GITHUB_TOKEN not found (add it to .env or pass as an argument).")
         sys.exit(1)
 
     update_version_in_updater(new_version)
