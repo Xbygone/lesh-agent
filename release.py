@@ -15,6 +15,13 @@ import subprocess
 
 import requests
 
+# Windows Türkçe konsolda (cp1254) Unicode print hatalarını önle
+try:
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+except Exception:
+    pass
+
 REPO = "Xbygone/lesh-agent"
 
 
@@ -125,7 +132,7 @@ def upload_asset(release_info, headers, zip_path):
         resp = requests.post(f"{upload_url}?name=lesh-agent.zip", headers=upload_headers, data=f)
 
     if resp.status_code == 201:
-        print(f"[✓] Yayınlandı: {release_info['html_url']}")
+        print(f"[OK] Yayinlandi: {release_info['html_url']}")
     else:
         print("[-] Yükleme hatası:", resp.text)
         sys.exit(1)
