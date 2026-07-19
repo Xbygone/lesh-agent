@@ -37,3 +37,4 @@ _internal/
 update.bat
 _temp_update_/
 crash_log.txt
+publish_log.txt
