@@ -8,14 +8,16 @@ Lesh is an advanced, autonomous AI coding agent designed to run primarily locall
 
 ## Features
 
-- 🌍 **Bilingual Support (EN / TR)**: Easily switch between English and Turkish UI from the top menu.
 - 💬 **Persistent Chat Sessions**: Your past chat sessions are automatically saved in the `.lesh/sessions/` directory. You can easily access, review, and continue from any past chat using the sidebar.
-- ⚡ **Auto-Updating System**: On every startup, Lesh checks for a new version via the GitHub API, downloads the zip payload silently, replaces the old files, and restarts itself without any manual intervention. 
+- ⚡ **Auto-Updating System**: The packaged app checks for new versions via the GitHub API, downloads the zip payload, replaces the old files and restarts itself. (Disabled when running from source to protect your git working tree.)
 - 🤖 **Multi-LLM Capabilities**:
   - **Local (Ollama)**: True privacy. Supports `qwen2.5-coder`, `deepseek-r1` and more.
-  - **Cloud Providers**: Seamlessly switch to GitHub Models, Google AI Studio (Gemini), or Groq Cloud via PATs/API keys to access state-of-the-art models like `gpt-4o`, `gemini-2.0-flash`, and `llama-3.3-70b`.
-- 🔐 **Cloud Accounts (Supabase)**: Securely log in and save your API keys (GitHub, Groq, etc.) to the cloud. Your keys are encrypted locally before transmission and synced across your devices via Supabase Row Level Security (RLS).
-- 📁 **Workspace Management**: Bind a folder to the agent. It will read files, execute commands, run code, and seamlessly git commit & push its own autonomous changes.
+  - **Cloud Providers**: GitHub Models (`models.github.ai`), Google AI Studio (Gemini), Groq Cloud and NVIDIA Build via your own API keys.
+  - **Oto-Pilot**: Routes easy tasks to the local model and hard ones to the cloud automatically.
+  - **Yazılım Ofisi**: 5-expert cross-provider consensus pipeline for complex tasks.
+- 🛡️ **Command Approval**: Every terminal command the agent wants to run is shown to you in an approval dialog first (optional auto-approve switch). File operations are sandboxed to the selected workspace.
+- 🔐 **Key Storage**: 100% local by default — API keys are encrypted with a per-machine key and stored in `~/.lesh/`. Optional Supabase cloud sync (bring your own instance via `.env`) with Row Level Security. Passwords are never written to disk; sessions restore via refresh tokens.
+- 📁 **Workspace Management**: Bind a folder to the agent. It will read files, execute commands, run code, and git commit & push with one click.
 - 📦 **One-Dir Architecture**: Packaged as a single directory executable (`--onedir`), keeping it completely open-source and transparent for you to inspect and modify.
 
 ## Quick Start
@@ -38,14 +40,28 @@ pip install -r requirements.txt
 python main.py
 ```
 
-### Auto-Release
+Optional cloud sync / release settings live in `.env` (see `.env.example`). Without a `.env` the app runs fully local.
 
-To create a new release executable and push it to GitHub:
+### Tests
+
 ```bash
-python release.py 1.0.4 YOUR_GITHUB_PAT
+python smoke_test.py
 ```
 
-This will increment the internal version, build with PyInstaller, zip the dist folder, and upload the payload directly to GitHub releases.
+### Auto-Release
+
+To create a new release executable and push it to GitHub (reads `GITHUB_TOKEN` from `.env`):
+```bash
+python release.py 1.5.0
+```
+
+This will update the internal version, build with PyInstaller, zip the dist folder, create/update the GitHub release and upload the payload.
+
+## Security Notes
+
+- The agent can only read/write files inside the workspace you select (realpath + commonpath sandbox).
+- Terminal commands require your explicit approval unless you enable auto-approve; obviously destructive commands are always blocked.
+- No secrets ship inside the source or binary. Credentials are encrypted at rest with a per-machine key (`~/.lesh/.keyfile`).
 
 ## License
 

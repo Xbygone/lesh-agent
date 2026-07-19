@@ -1,145 +1,154 @@
-import customtkinter as ctk
-from db_manager import db
+"""Login screen. Passwords are NEVER written to disk; sessions are restored
+with a Supabase refresh token. When cloud sync is not configured the screen
+is skipped entirely (fully-local mode)."""
+
 import threading
-import os
-import json
-import webbrowser
+import customtkinter as ctk
 
-CONFIG_FILE = os.path.expanduser("~/.yerel_agent_config.json")
+from db_manager import db
+from app_config import load_config, update_config
+from theme import (
+    SURFACE_COLOR, SURFACE_2, BORDER_COLOR, PRIMARY_COLOR, PRIMARY_HOVER,
+    TEXT_PRIMARY, TEXT_SECONDARY, SUCCESS_COLOR, ERROR_COLOR, FONT_FAMILY,
+)
 
-def load_config():
-    if os.path.exists(CONFIG_FILE):
-        try:
-            with open(CONFIG_FILE, "r") as f:
-                return json.load(f)
-        except:
-            return {}
-    return {}
-
-def save_config(data):
-    try:
-        with open(CONFIG_FILE, "w") as f:
-            json.dump(data, f)
-    except:
-        pass
 
 class AuthFrame(ctk.CTkFrame):
     def __init__(self, master, on_success):
-        super().__init__(master, fg_color="#1E1F20", corner_radius=10)
+        super().__init__(master, fg_color=SURFACE_COLOR, corner_radius=0)
         self.on_success = on_success
-        
-        self.container = ctk.CTkFrame(self, fg_color="transparent")
-        self.container.place(relx=0.5, rely=0.5, anchor="center")
 
-        self.lbl_title = ctk.CTkLabel(self.container, text="Lesh Agent", font=("Inter", 28, "bold"), text_color="#8AB4F8")
-        self.lbl_title.pack(pady=(0, 10))
-        
-        self.lbl_sub = ctk.CTkLabel(self.container, text="Güvenli giriş yapın veya kayıt olun", font=("Inter", 12), text_color="#AAAAAA")
-        self.lbl_sub.pack(pady=(0, 30))
+        # Fully local install → no login concept at all.
+        if not db.cloud_enabled:
+            self.after(50, self._finish)
+            return
 
-        self.entry_email = ctk.CTkEntry(self.container, placeholder_text="E-posta", width=250, height=40)
-        self.entry_email.pack(pady=10)
-        
-        self.entry_password = ctk.CTkEntry(self.container, placeholder_text="Şifre", show="*", width=250, height=40)
-        self.entry_password.pack(pady=10)
+        card = ctk.CTkFrame(
+            self, fg_color=SURFACE_2, corner_radius=16,
+            border_width=1, border_color=BORDER_COLOR
+        )
+        card.place(relx=0.5, rely=0.5, anchor="center")
 
-        self.lbl_msg = ctk.CTkLabel(self.container, text="", font=("Inter", 12), text_color="#F28B82")
-        self.lbl_msg.pack(pady=5)
+        inner = ctk.CTkFrame(card, fg_color="transparent")
+        inner.pack(padx=48, pady=40)
 
-        self.btn_login = ctk.CTkButton(self.container, text="Giriş Yap", width=250, height=40, font=("Inter", 14, "bold"), command=self.do_login)
-        self.btn_login.pack(pady=5)
-        
-        self.btn_github = ctk.CTkButton(self.container, text="GitHub ile Giriş Yap", width=250, height=40, fg_color="#24292e", hover_color="#2f363d", font=("Inter", 14), command=self.do_github_login)
-        self.btn_github.pack(pady=5)
-        
-        self.btn_register = ctk.CTkButton(self.container, text="Kayıt Ol", width=250, height=40, fg_color="#333333", hover_color="#444444", font=("Inter", 14), command=self.do_register)
-        self.btn_register.pack(pady=5)
-        
-        self.btn_skip = ctk.CTkButton(self.container, text="Misafir Olarak Devam Et (Atla)", width=250, height=40, fg_color="transparent", hover_color="#333333", border_width=1, border_color="#555555", font=("Inter", 13), command=self.do_skip)
-        self.btn_skip.pack(pady=(15, 5))
-        
-        # Check auto-login
-        self.after(100, self.check_auto_login)
+        ctk.CTkLabel(
+            inner, text="Lesh Agent", font=(FONT_FAMILY, 30, "bold"),
+            text_color=PRIMARY_COLOR
+        ).pack(pady=(0, 6))
+        ctk.CTkLabel(
+            inner, text="API anahtarlarınızı cihazlar arası eşitlemek için giriş yapın",
+            font=(FONT_FAMILY, 12), text_color=TEXT_SECONDARY
+        ).pack(pady=(0, 26))
 
-    def check_auto_login(self):
-        config = load_config()
-        saved_email = config.get("auto_email")
-        saved_pwd_enc = config.get("auto_pwd")
-        if saved_email and saved_pwd_enc:
-            try:
-                pwd = db.decrypt(saved_pwd_enc)
-                self.entry_email.insert(0, saved_email)
-                self.entry_password.insert(0, pwd)
-                self._show_msg("Otomatik giriş yapılıyor...", "#81C995")
-                self.do_login()
-            except:
-                pass
+        self.entry_email = ctk.CTkEntry(
+            inner, placeholder_text="E-posta", width=280, height=42,
+            fg_color=SURFACE_COLOR, border_color=BORDER_COLOR, corner_radius=8
+        )
+        self.entry_email.pack(pady=6)
 
-    def do_skip(self):
-        self.destroy()
-        self.on_success()
+        self.entry_password = ctk.CTkEntry(
+            inner, placeholder_text="Şifre", show="•", width=280, height=42,
+            fg_color=SURFACE_COLOR, border_color=BORDER_COLOR, corner_radius=8
+        )
+        self.entry_password.pack(pady=6)
+        self.entry_password.bind("<Return>", lambda e: self.do_login())
 
-    def do_github_login(self):
-        try:
-            res = db.supabase.auth.sign_in_with_oauth({
-                "provider": "github",
-                "options": {
-                    "redirect_to": "http://localhost:54321/callback"
-                }
-            })
-            if res and hasattr(res, "url"):
-                webbrowser.open(res.url)
-                self._show_msg("Tarayıcıda GitHub girişi açıldı.", "#81C995")
-        except Exception as e:
-            self._show_msg(f"GitHub hatası: {str(e)}", "#F28B82")
+        self.lbl_msg = ctk.CTkLabel(
+            inner, text="", font=(FONT_FAMILY, 12), text_color=ERROR_COLOR,
+            wraplength=280
+        )
+        self.lbl_msg.pack(pady=6)
+
+        self.btn_login = ctk.CTkButton(
+            inner, text="Giriş Yap", width=280, height=42, corner_radius=8,
+            fg_color=PRIMARY_COLOR, hover_color=PRIMARY_HOVER, text_color="#0F1011",
+            font=(FONT_FAMILY, 14, "bold"), command=self.do_login
+        )
+        self.btn_login.pack(pady=(8, 4))
+
+        self.btn_register = ctk.CTkButton(
+            inner, text="Kayıt Ol", width=280, height=42, corner_radius=8,
+            fg_color="transparent", hover_color=SURFACE_COLOR,
+            border_width=1, border_color=BORDER_COLOR, text_color=TEXT_PRIMARY,
+            font=(FONT_FAMILY, 13), command=self.do_register
+        )
+        self.btn_register.pack(pady=4)
+
+        self.btn_skip = ctk.CTkButton(
+            inner, text="Misafir olarak devam et →", width=280, height=38,
+            fg_color="transparent", hover_color=SURFACE_COLOR,
+            text_color=TEXT_SECONDARY, font=(FONT_FAMILY, 12),
+            command=self._finish
+        )
+        self.btn_skip.pack(pady=(16, 0))
+
+        self.after(150, self._try_session_restore)
+
+    # ── flows ─────────────────────────────────────────────
+    def _try_session_restore(self):
+        token = load_config().get("refresh_token")
+        if not token:
+            return
+        self._show_msg("Oturum geri yükleniyor...", SUCCESS_COLOR)
+
+        def _run():
+            ok = db.restore_session(token)
+            if ok:
+                new_token = db.get_refresh_token()
+                if new_token:
+                    update_config(refresh_token=new_token)
+                self.after(0, self._finish)
+            else:
+                self.after(0, lambda: self._show_msg("", TEXT_SECONDARY))
+
+        threading.Thread(target=_run, daemon=True).start()
 
     def do_login(self):
         email = self.entry_email.get().strip()
-        pwd = self.entry_password.get().strip()
+        pwd = self.entry_password.get()
         if not email or not pwd:
-            self.lbl_msg.configure(text="E-posta ve şifre gerekli!", text_color="#F28B82")
+            self._show_msg("E-posta ve şifre gerekli.", ERROR_COLOR)
             return
-            
         self.btn_login.configure(state="disabled", text="Bekleyin...")
-        
+
         def _run():
             success, msg = db.login(email, pwd)
             if success:
-                # Save credentials for auto-login
-                config = load_config()
-                config["auto_email"] = email
-                config["auto_pwd"] = db.encrypt(pwd)
-                save_config(config)
-                
-                self.after(0, self._login_success)
+                token = db.get_refresh_token()
+                if token:
+                    update_config(refresh_token=token)
+                self.after(0, self._finish)
             else:
-                self.after(0, lambda: self._show_msg(f"Hata: {msg}", "#F28B82"))
+                self.after(0, lambda: self._show_msg(f"Hata: {msg}", ERROR_COLOR))
                 self.after(0, lambda: self.btn_login.configure(state="normal", text="Giriş Yap"))
-                
+
         threading.Thread(target=_run, daemon=True).start()
 
     def do_register(self):
         email = self.entry_email.get().strip()
-        pwd = self.entry_password.get().strip()
+        pwd = self.entry_password.get()
         if not email or not pwd:
-            self.lbl_msg.configure(text="E-posta ve şifre gerekli!", text_color="#F28B82")
+            self._show_msg("E-posta ve şifre gerekli.", ERROR_COLOR)
             return
-            
         self.btn_register.configure(state="disabled", text="Bekleyin...")
-        
+
         def _run():
             success, msg = db.register(email, pwd)
-            if success:
-                self.after(0, lambda: self._show_msg("Kayıt başarılı! Lütfen giriş yapın.", "#81C995"))
-            else:
-                self.after(0, lambda: self._show_msg(f"Hata: {msg}", "#F28B82"))
+            color = SUCCESS_COLOR if success else ERROR_COLOR
+            text = "Kayıt başarılı! Şimdi giriş yapın." if success else f"Hata: {msg}"
+            self.after(0, lambda: self._show_msg(text, color))
             self.after(0, lambda: self.btn_register.configure(state="normal", text="Kayıt Ol"))
-                
+
         threading.Thread(target=_run, daemon=True).start()
 
+    # ── helpers ───────────────────────────────────────────
     def _show_msg(self, text, color):
-        self.lbl_msg.configure(text=text, text_color=color)
+        try:
+            self.lbl_msg.configure(text=text, text_color=color)
+        except Exception:
+            pass
 
-    def _login_success(self):
+    def _finish(self):
         self.destroy()
         self.on_success()

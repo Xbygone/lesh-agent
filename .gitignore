@@ -32,4 +32,8 @@ htmlcov/
 .lesh/
 *.exe
 _internal/
-.env
+
+# Updater artifacts
+update.bat
+_temp_update_/
+crash_log.txt

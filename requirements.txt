@@ -2,7 +2,8 @@ customtkinter
 ollama
 requests
 openai
-google-generativeai
 Pillow
 supabase
 cryptography
+duckduckgo-search
+beautifulsoup4
